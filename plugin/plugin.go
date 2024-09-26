@@ -7,7 +7,6 @@ package plugin
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -183,6 +182,11 @@ func (p *Plugin) SetIsHonorSsl() {
 }
 
 func (p *Plugin) SetAuthBasic() {
+
+	if p.AuthBasic != "" {
+		return
+	}
+
 	if p.AuthUser != "" && p.AuthPass != "" {
 		p.HttpReq.SetBasicAuth(p.AuthUser, p.AuthPass)
 	}
@@ -214,19 +218,28 @@ func (p *Plugin) SetOutputResults() {
 func (p *Plugin) ValidateArgs() error {
 
 	if p.ValidateUrl() != nil {
+		fmt.Println("bad url")
 		return errors.New("url is required")
 	}
 
 	if p.ValidateHttpMethod(p.HttpMethod) != nil {
+		fmt.Println("invalid http_method")
 		return errors.New("invalid http_method")
 	}
 
 	if p.ValidateHeader(p.Headers) != nil {
+		fmt.Println("malformed headers")
 		return errors.New("malformed headers")
 	}
 
 	if p.ValidateRequestBody() != nil {
+		fmt.Println("request_body is required")
 		return errors.New("request_body is required")
+	}
+
+	if p.ValidateAuthBasic() != nil {
+		fmt.Println("auth_basic info not good")
+		return errors.New("auth_basic info not good")
 	}
 
 	return nil
@@ -234,38 +247,19 @@ func (p *Plugin) ValidateArgs() error {
 
 func (p *Plugin) ValidateAuthBasic() error {
 
-	authBasic := p.AuthBasic
-
-	if authBasic == "" {
+	if p.AuthBasic == "" {
 		return nil
 	}
 
-	const prefix = "Authorization: Basic "
-	if !strings.HasPrefix(authBasic, prefix) {
-		return errors.New("invalid authorization header format")
+	authBasic := p.AuthBasic
+	userPassInfo := strings.Split(authBasic, ":")
+
+	if len(userPassInfo) != 2 {
+		return errors.New("invalid auth_basic format")
 	}
 
-	b64Creds := strings.TrimPrefix(authBasic, prefix)
-
-	decodedBytes, err := base64.StdEncoding.DecodeString(b64Creds)
-	if err != nil {
-		return errors.New("invalid base64 encoding")
-	}
-	decodedCredentials := string(decodedBytes)
-
-	credentials := strings.SplitN(decodedCredentials, ":", 2)
-	if len(credentials) != 2 {
-		return errors.New("invalid credentials format, expected 'username:password'")
-	}
-
-	if len(credentials[0]) != 0 && len(credentials[1]) == 0 {
-		return errors.New("username and password cannot be empty")
-	} else if len(credentials[0]) == 0 && len(credentials[1]) != 0 {
-		return errors.New("username and password cannot be empty")
-	}
-
-	p.AuthUser = credentials[0]
-	p.AuthPass = credentials[1]
+	p.AuthUser = userPassInfo[0]
+	p.AuthPass = userPassInfo[1]
 
 	return nil
 }
@@ -315,21 +309,25 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 
 		headerItem = strings.TrimSpace(headerItem)
 		if i == 0 && headerItem == "" {
+			fmt.Println(`if i == 0 && headerItem == ""`)
 			return errors.New("malformed header: empty header")
 		}
 
 		kvPair := strings.SplitN(headerItem, ":", 2)
 		if len(kvPair) != 2 {
+			fmt.Println(`if len(kvPair) != 2`)
 			return fmt.Errorf("malformed header: '%s' (missing colon)", headerItem)
 		}
 
 		key := strings.TrimSpace(kvPair[0])
 		if key == "" {
+			fmt.Println(`if key == ""`)
 			return fmt.Errorf("malformed header: '%s' (empty header name)", headerItem)
 		}
 
 		value := strings.TrimSpace(kvPair[1])
 		if value == "" {
+			fmt.Println(`if value == ""`)
 			return fmt.Errorf("malformed header: '%s' (empty header value)", headerItem)
 		}
 	}
