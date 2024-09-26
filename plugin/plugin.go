@@ -164,6 +164,10 @@ func (p *Plugin) DoRequest() error {
 	}
 	p.isConnectionOpen = true
 
+	if p.ResponseStatus < 200 && p.ResponseStatus > 299 {
+		return errors.New("bad response status")
+	}
+
 	return nil
 }
 
