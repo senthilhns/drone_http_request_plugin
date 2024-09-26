@@ -181,6 +181,10 @@ func (p *Plugin) IsResponseOk() error {
 
 func (p *Plugin) StoreHttpResponseResults() error {
 
+	if p.LogResponse {
+		log.Println("Response Body:", p.ResponseContent)
+	}
+
 	headers := make([]string, 0, len(p.httpResponse.Header))
 
 	p.ResponseStatus = p.httpResponse.StatusCode
@@ -253,11 +257,25 @@ func (p *Plugin) SetHttpResponseEnvVars() {
 }
 
 func (p *Plugin) SetIsHonorSsl() {
-	if p.IgnoreSsl {
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+
+	var tlsConfig *tls.Config
+
+	tlsConfig = &tls.Config{
+		InsecureSkipVerify: p.IgnoreSsl,
+	}
+
+	if p.AuthCert != "" && !p.IgnoreSsl {
+		cert, err := tls.LoadX509KeyPair(p.AuthCert, p.AuthCert)
+		if err != nil {
+			log.Fatalf("error loading certificate: %v", err)
 		}
-		p.httpClient.Transport = transport
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	if tlsConfig != nil {
+		p.httpClient.Transport = &http.Transport{
+			TLSClientConfig: tlsConfig,
+		}
 	}
 }
 
@@ -316,6 +334,33 @@ func (p *Plugin) ValidateArgs() error {
 	if p.ValidateAuthBasic() != nil {
 		fmt.Println("auth_basic info not good")
 		return errors.New("auth_basic info not good")
+	}
+
+	if p.ValidateAuthCert() != nil {
+		fmt.Println("certificate file not found")
+		return errors.New("certificate file not found")
+	}
+
+	return nil
+}
+
+func (p *Plugin) ValidateAuthCert() error {
+	if p.AuthCert == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(p.AuthCert); os.IsNotExist(err) {
+		return fmt.Errorf("certificate file not found: %s", p.AuthCert)
+	}
+
+	cert, err := ioutil.ReadFile(p.AuthCert)
+	if err != nil {
+		return fmt.Errorf("error reading certificate file: %v", err)
+	}
+
+	_, err = tls.X509KeyPair(cert, cert)
+	if err != nil {
+		return fmt.Errorf("invalid certificate format: %v", err)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -27,6 +28,7 @@ var enableTests = map[string]bool{
 	"TestMkcolRequest":               true,
 	"TestMKCOLWithLocalWebDAVServer": true,
 	"TestGetRequestAndWriteToFile":   true,
+	//"TestPluginWithCustomSslCert":    true,
 }
 
 func TestGetRequest(t *testing.T) {
@@ -328,6 +330,56 @@ func TestGetRequestAndWriteToFile(t *testing.T) {
 
 	t.Logf("Test passed. Response written to file: %s", outputFile)
 	t.Logf("Response content: %s", string(content))
+}
+
+func TestPluginWithCustomSslCert(t *testing.T) {
+
+	_, found := enableTests["TestPluginWithCustomSslCert"]
+	if !found {
+		t.Skip("Skipping TestPluginWithCustomSslCert test")
+	}
+
+	const certName = "./bogus_private.key.pem"
+
+	if _, err := os.Stat(certName); os.IsNotExist(err) {
+		t.Fatalf("Certificate file not found: %v", err)
+	}
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        "https://httpbin.org/get", // A simple URL to perform a GET request
+			HttpMethod: "GET",
+			Timeout:    30,
+			Headers:    ContentTypeApplicationJson,
+			AuthCert:   certName,
+			IgnoreSsl:  false,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	plugin.httpResponse = &http.Response{
+		StatusCode: 200,
+		Body:       ioutil.NopCloser(strings.NewReader(`{"status":"ok"}`)),
+	}
+
+	err = plugin.StoreHttpResponseResults()
+	if err != nil {
+		t.Fatalf("Failed to store HTTP response results: %v", err)
+	}
+
+	if plugin.ResponseStatus != 200 {
+		t.Errorf("Expected response status 200, got %d", plugin.ResponseStatus)
+	}
+
+	if plugin.ResponseContent != `{"status":"ok"}` {
+		t.Errorf("Expected response content to be '%s', got '%s'", `{"status":"ok"}`, plugin.ResponseContent)
+	}
 }
 
 //
