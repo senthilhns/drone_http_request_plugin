@@ -49,11 +49,12 @@ type PluginProcessingInfo struct {
 	AuthUser string
 	AuthPass string
 	//BodyBytes       *bytes.Buffer
-	BodyIoReader    io.Reader
-	HttpReq         *http.Request
-	TimeOutDuration time.Duration
-	httpClient      *http.Client
-	httpResponse    *http.Response
+	BodyIoReader     io.Reader
+	HttpReq          *http.Request
+	TimeOutDuration  time.Duration
+	httpClient       *http.Client
+	httpResponse     *http.Response
+	isConnectionOpen bool
 }
 
 /*
@@ -100,7 +101,10 @@ func (p *Plugin) Init() error {
 }
 
 func (p *Plugin) DeInit() error {
-	p.httpResponse.Body.Close()
+	if p.isConnectionOpen {
+		p.httpResponse.Body.Close()
+	}
+
 	fmt.Println("DeInit() called")
 	return nil
 }
@@ -138,7 +142,7 @@ func (p *Plugin) DoRequest() error {
 	if err != nil {
 		return fmt.Errorf("error sending request: %v", err)
 	}
-	// defer p.httpResponse.Body.Close()
+	p.isConnectionOpen = true
 
 	p.SetHttpResponseEnvVars()
 	return nil
