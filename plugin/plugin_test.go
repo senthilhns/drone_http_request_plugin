@@ -29,7 +29,6 @@ func TestPluginHttpMethods(t *testing.T) {
 		{name: "MKCOL request", httpMethod: "MKCOL", url: TestUrl + "/mkcol", body: "", headers: ContentTypeApplicationJson},
 	}
 
-	// Loop through each test case
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Prepare arguments for the plugin
@@ -43,25 +42,25 @@ func TestPluginHttpMethods(t *testing.T) {
 				},
 			}
 
-			// Create a new Plugin object
 			plugin := &Plugin{
 				Args:                 args,
 				PluginProcessingInfo: PluginProcessingInfo{},
 			}
 
-			// Run the plugin
 			err := plugin.Run()
 			if err != nil {
 				t.Fatalf("Run() returned an error: %v", err)
 			}
+			defer func() {
+				plugin.DeInit()
+			}()
 
-			// Check the response for requests that return a body (not HEAD or OPTIONS)
 			if tc.httpMethod != "HEAD" && tc.httpMethod != "OPTIONS" {
-				if plugin.HttpResponse.StatusCode != 200 {
-					t.Errorf("Expected status 200, but got %d", plugin.HttpResponse.StatusCode)
+				if plugin.httpResponse.StatusCode != 200 {
+					t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
 				}
 
-				body, err := ioutil.ReadAll(plugin.HttpResponse.Body)
+				body, err := ioutil.ReadAll(plugin.httpResponse.Body)
 				if err != nil {
 					t.Fatalf("Failed to read response body: %v", err)
 				}
@@ -69,8 +68,7 @@ func TestPluginHttpMethods(t *testing.T) {
 				// t.Logf("Response body for %s: %s", tc.httpMethod, string(body))
 			}
 
-			// Close the response body after the test
-			plugin.HttpResponse.Body.Close()
+			plugin.httpResponse.Body.Close()
 		})
 	}
 }

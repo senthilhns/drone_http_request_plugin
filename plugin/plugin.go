@@ -53,7 +53,7 @@ type PluginProcessingInfo struct {
 	HttpReq         *http.Request
 	TimeOutDuration time.Duration
 	httpClient      *http.Client
-	HttpResponse    *http.Response
+	httpResponse    *http.Response
 }
 
 /*
@@ -95,6 +95,16 @@ func GetNewPlugin(args Args) *Plugin {
 	}
 }
 
+func (p *Plugin) Init() error {
+	return nil
+}
+
+func (p *Plugin) DeInit() error {
+	p.httpResponse.Body.Close()
+	fmt.Println("DeInit() called")
+	return nil
+}
+
 func (p *Plugin) Run() error {
 
 	err := p.ValidateArgs()
@@ -124,11 +134,11 @@ func (p *Plugin) DoRequest() error {
 	p.CreateHttpClient()
 	p.SetIsHonorSsl()
 
-	p.HttpResponse, err = p.httpClient.Do(p.HttpReq)
+	p.httpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
 		return fmt.Errorf("error sending request: %v", err)
 	}
-	// defer p.HttpResponse.Body.Close()
+	// defer p.httpResponse.Body.Close()
 
 	p.SetHttpResponseEnvVars()
 	return nil
@@ -152,9 +162,9 @@ func (p *Plugin) CreateHttpClient() {
 }
 
 func (p *Plugin) SetHttpResponseEnvVars() {
-	fmt.Printf("Response status: %s\n", p.HttpResponse.Status)
+	fmt.Printf("Response status: %s\n", p.httpResponse.Status)
 	fmt.Println("Response headers:")
-	for key, values := range p.HttpResponse.Header {
+	for key, values := range p.httpResponse.Header {
 		fmt.Printf("%s: %s\n", key, strings.Join(values, ","))
 	}
 }
