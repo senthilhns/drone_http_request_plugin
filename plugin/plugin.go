@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 )
@@ -56,14 +58,7 @@ type PluginProcessingInfo struct {
 	isConnectionOpen bool
 }
 
-/*
-	RESPONSE_STATUS -	The HTTP status code returned by the server.
-	RESPONSE_CONTENT - The content of the response body (if not saved to a file i.e. when PLUGIN_OUTPUT_FILE is set).
-	RESPONSE_HEADERS - The headers returned in the HTTP response.
-	RESPONSE_FILE -	If output_file (PLUGIN_OUTPUT_FILE) is set, the file path where the response is saved.
-*/
-
-type PluginExecResults struct {
+type PluginExecResultsCard struct {
 	ResponseStatus  int    `json:"RESPONSE_STATUS"`
 	ResponseContent string `json:"RESPONSE_CONTENT"`
 	ResponseHeaders string `json:"RESPONSE_HEADERS"`
@@ -74,7 +69,7 @@ type Plugin struct {
 	Args
 	PluginConfigParams
 	PluginProcessingInfo
-	PluginExecResults
+	PluginExecResultsCard
 }
 
 //type Plugin = Plugin
@@ -120,7 +115,10 @@ func (p *Plugin) Run() error {
 		log.Println("DoRequest failed err == ", err.Error())
 	}
 
-	p.SetOutputResults()
+	err = p.StoreHttpResponseResults()
+	if err != nil {
+		return errors.New("error storing response results")
+	}
 	return nil
 }
 
@@ -143,9 +141,66 @@ func (p *Plugin) DoRequest() error {
 	}
 	p.isConnectionOpen = true
 
-	p.SetHttpResponseEnvVars()
 	return nil
+}
 
+func (p *Plugin) StoreHttpResponseResults() error {
+
+	headers := make([]string, 0, len(p.httpResponse.Header))
+
+	p.ResponseStatus = p.httpResponse.StatusCode
+	for key, values := range p.httpResponse.Header {
+		headers = append(headers, fmt.Sprintf("%s: %s", key, strings.Join(values, ",")))
+	}
+	p.ResponseHeaders = strings.Join(headers, "\n")
+
+	switch {
+	case len(p.OutputFile) > 0:
+		err := p.WriteResponseToFile()
+		if err != nil {
+			return err
+		}
+	default:
+		err := p.SetResponseBody()
+		if err != nil {
+			return err
+		}
+	}
+	card := PluginExecResultsCard{
+		ResponseStatus:  p.ResponseStatus,
+		ResponseContent: p.ResponseContent,
+		ResponseHeaders: p.ResponseHeaders,
+		ResponseFile:    p.OutputFile,
+	}
+
+	writeCard(StdOut, Schema, card)
+	return nil
+}
+
+func (p *Plugin) WriteResponseToFile() error {
+
+	outFile, err := os.Create(p.OutputFile)
+	if err != nil {
+		return fmt.Errorf("error creating output file: %v", err)
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, p.httpResponse.Body)
+	if err != nil {
+		return fmt.Errorf("error saving response to file: %v", err)
+	}
+
+	return nil
+}
+
+func (p *Plugin) SetResponseBody() error {
+	bodyBytes, err := ioutil.ReadAll(p.httpResponse.Body)
+	if err != nil {
+		fmt.Println("error reading response body ", err.Error())
+		return err
+	}
+	p.ResponseContent = string(bodyBytes)
+	return nil
 }
 
 func (p *Plugin) CreateNewHttpRequest() error {
@@ -209,10 +264,6 @@ func (p *Plugin) SetHeaders() {
 			p.HttpReq.Header.Set(strings.TrimSpace(kvPair[0]), strings.TrimSpace(kvPair[1]))
 		}
 	}
-}
-
-func (p *Plugin) SetOutputResults() {
-	//writeCard("/dev/stdout", "drone", outputEnvVars)
 }
 
 func (p *Plugin) ValidateArgs() error {
@@ -334,6 +385,11 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 
 	return nil
 }
+
+const (
+	Schema = "https://drone.github.io/drone-jira/card.json"
+	StdOut = "/dev/stdout"
+)
 
 //
 //

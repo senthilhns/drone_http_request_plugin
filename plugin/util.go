@@ -28,9 +28,18 @@ func writeCard(path, schema string, card interface{}) {
 }
 
 func writeCardTo(out io.Writer, data []byte) {
+
+	if os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE" {
+		// fmt.Println("TMP_PLUGIN_LOCAL_TESTING is TRUE, skipping writing card")
+		return
+	}
+
 	encoded := base64.StdEncoding.EncodeToString(data)
 	io.WriteString(out, "\u001B]1338;")
 	io.WriteString(out, encoded)
 	io.WriteString(out, "\u001B]0m")
 	io.WriteString(out, "\n")
 }
+
+//
+//

@@ -2,9 +2,13 @@ package plugin
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"os"
 	"testing"
+	"time"
 )
 
 const (
@@ -22,6 +26,7 @@ var enableTests = map[string]bool{
 	"TestOptionsRequest":             true,
 	"TestMkcolRequest":               true,
 	"TestMKCOLWithLocalWebDAVServer": true,
+	"TestGetRequestAndWriteToFile":   true,
 }
 
 func TestGetRequest(t *testing.T) {
@@ -273,6 +278,56 @@ func TestNegativeAuthBasic(t *testing.T) {
 		t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
 	}
 
+}
+
+func randomFileName() string {
+	rand.Seed(time.Now().UnixNano())
+	return fmt.Sprintf("output_%d.txt", rand.Intn(100000))
+}
+
+func TestGetRequestAndWriteToFile(t *testing.T) {
+
+	_, found := enableTests["TestGetRequestAndWriteToFile"]
+	if !found {
+		t.Skip("Skipping TestGetRequestAndWriteToFile test")
+	}
+
+	outputFile := "/tmp/" + randomFileName()
+
+	//defer os.Remove(outputFile)
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        "https://httpbin.org/get", // A simple URL to perform a GET request
+			HttpMethod: "GET",
+			Timeout:    30,
+			Headers:    ContentTypeApplicationJson,
+			OutputFile: outputFile, // Set the random output file
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	if _, err := os.Stat(outputFile); os.IsNotExist(err) {
+		t.Fatalf("Expected output file %s to be created, but it does not exist", outputFile)
+	}
+
+	content, err := ioutil.ReadFile(outputFile)
+	if err != nil {
+		t.Fatalf("Failed to read the output file: %v", err)
+	}
+
+	if len(content) == 0 {
+		t.Fatalf("Output file %s is empty, expected response body to be written", outputFile)
+	}
+
+	t.Logf("Test passed. Response written to file: %s", outputFile)
+	t.Logf("Response content: %s", string(content))
 }
 
 //
