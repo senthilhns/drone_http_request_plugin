@@ -13,14 +13,15 @@ const (
 )
 
 var enableTests = map[string]bool{
-	"TestGetRequest":     true,
-	"TestPostRequest":    true,
-	"TestPutRequest":     true,
-	"TestDeleteRequest":  true,
-	"TestPatchRequest":   true,
-	"TestHeadRequest":    true,
-	"TestOptionsRequest": true,
-	"TestMkcolRequest":   true,
+	"TestGetRequest":                 true,
+	"TestPostRequest":                true,
+	"TestPutRequest":                 true,
+	"TestDeleteRequest":              true,
+	"TestPatchRequest":               true,
+	"TestHeadRequest":                true,
+	"TestOptionsRequest":             true,
+	"TestMkcolRequest":               true,
+	"TestMKCOLWithLocalWebDAVServer": true,
 }
 
 func TestGetRequest(t *testing.T) {
@@ -84,15 +85,6 @@ func TestOptionsRequest(t *testing.T) {
 	}
 
 	runPluginTest(t, "OPTIONS", TestUrl+"/get", "", ContentTypeApplicationJson)
-}
-
-func TestMkcolRequest(t *testing.T) {
-	_, found := enableTests["TestMkcolRequest"]
-	if !found {
-		t.Skip("Skipping TestMkcolRequest test")
-	}
-
-	runPluginTest(t, "MKCOL", TestUrl+"/mkcol", "", ContentTypeApplicationJson)
 }
 
 func runPluginTest(t *testing.T, method, url, body, headers string) {
