@@ -21,6 +21,7 @@ import (
 type Args struct {
 	Pipeline
 	PluginInputParams
+	PluginConfigParams
 }
 
 type PluginConfigParams struct {
@@ -67,7 +68,6 @@ type PluginExecResultsCard struct {
 
 type Plugin struct {
 	Args
-	PluginConfigParams
 	PluginProcessingInfo
 	PluginExecResultsCard
 }
@@ -122,6 +122,27 @@ func (p *Plugin) Run() error {
 	return nil
 }
 
+func (p *Plugin) CreateNewHttpRequest() error {
+
+	p.SetTimeout()
+
+	ctx, cancel := context.WithTimeout(context.Background(), p.TimeOutDuration)
+	defer cancel()
+
+	var err error
+
+	p.HttpReq, err = http.NewRequestWithContext(ctx, p.HttpMethod, p.Url, p.BodyIoReader)
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err)
+	}
+
+	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
+	if err != nil {
+		return fmt.Errorf("error creating request: %v", err.Error())
+	}
+	return nil
+}
+
 func (p *Plugin) DoRequest() error {
 
 	err := p.CreateNewHttpRequest()
@@ -131,12 +152,14 @@ func (p *Plugin) DoRequest() error {
 
 	p.SetHeaders()
 	p.SetAuthBasic()
-	p.SetTimeout()
 	p.CreateHttpClient()
 	p.SetIsHonorSsl()
 
 	p.httpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return fmt.Errorf("request timed out after %v", p.TimeOutDuration)
+		}
 		return fmt.Errorf("error sending request: %v", err)
 	}
 	p.isConnectionOpen = true
@@ -203,16 +226,6 @@ func (p *Plugin) SetResponseBody() error {
 	return nil
 }
 
-func (p *Plugin) CreateNewHttpRequest() error {
-	var err error
-
-	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
-	if err != nil {
-		return fmt.Errorf("error creating request: %v", err.Error())
-	}
-	return nil
-}
-
 func (p *Plugin) CreateHttpClient() {
 	p.httpClient = &http.Client{
 		Timeout: p.TimeOutDuration,
@@ -248,11 +261,11 @@ func (p *Plugin) SetAuthBasic() {
 }
 
 func (p *Plugin) SetTimeout() {
-	timeout := time.Duration(60) * time.Second
-	if p.Timeout != 0 {
-		timeout = time.Duration(p.Timeout) * time.Second
+	if p.Timeout == 0 {
+		p.TimeOutDuration = 60 * time.Second
+		return
 	}
-	p.TimeOutDuration = timeout
+	p.TimeOutDuration = time.Duration(p.Timeout) * time.Second
 }
 
 func (p *Plugin) SetHeaders() {
