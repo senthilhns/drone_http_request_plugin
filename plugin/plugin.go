@@ -5,12 +5,12 @@
 package plugin
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -19,12 +19,14 @@ import (
 
 type Args struct {
 	Pipeline
+	PluginInputParams
+}
 
-	// Level defines the plugin log level.
+type PluginConfigParams struct {
 	Level string `envconfig:"PLUGIN_LOG_LEVEL"`
+}
 
-	// Plugin Params
-
+type PluginInputParams struct {
 	Url                string `envconfig:"PLUGIN_URL"`
 	HttpMethod         string `envconfig:"PLUGIN_HTTP_METHOD"`
 	Headers            string `envconfig:"PLUGIN_HEADERS"`
@@ -41,14 +43,16 @@ type Args struct {
 	Quiet              bool   `envconfig:"PLUGIN_QUIET"`
 	WrapAsMultipart    bool   `envconfig:"PLUGIN_WRAP_AS_MULTIPART"`
 	SslCertPath        string `envconfig:"PLUGIN_SSL_CERT_PATH"`
+}
 
-	//
-	AuthUser        string
-	AuthPass        string
-	BodyBytes       *bytes.Buffer
+type PluginProcessingInfo struct {
+	AuthUser string
+	AuthPass string
+	//BodyBytes       *bytes.Buffer
+	BodyIoReader    io.Reader
 	HttpReq         *http.Request
 	TimeOutDuration time.Duration
-	HttpClient      *http.Client
+	httpClient      *http.Client
 	HttpResponse    *http.Response
 }
 
@@ -59,33 +63,40 @@ type Args struct {
 	RESPONSE_FILE -	If output_file (PLUGIN_OUTPUT_FILE) is set, the file path where the response is saved.
 */
 
-type OutputEnvVars struct {
+type PluginExecResults struct {
 	ResponseStatus  int    `json:"RESPONSE_STATUS"`
 	ResponseContent string `json:"RESPONSE_CONTENT"`
 	ResponseHeaders string `json:"RESPONSE_HEADERS"`
 	ResponseFile    string `json:"RESPONSE_FILE"`
 }
 
+type Plugin struct {
+	Args
+	PluginConfigParams
+	PluginProcessingInfo
+	PluginExecResults
+}
+
+//type Plugin = Plugin
+
 func Exec(ctx context.Context, args Args) error {
-	httpRequestPlugin := GetNewHttpRequestPlugin(args)
-	err := httpRequestPlugin.Run()
+
+	Plugin := GetNewPlugin(args)
+	err := Plugin.Run()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-type HttpRequestPlugin struct {
-	Args
-}
-
-func GetNewHttpRequestPlugin(args Args) *HttpRequestPlugin {
-	return &HttpRequestPlugin{
+func GetNewPlugin(args Args) *Plugin {
+	return &Plugin{
 		Args: args,
 	}
 }
 
-func (p *HttpRequestPlugin) Run() error {
+func (p *Plugin) Run() error {
+
 	err := p.ValidateArgs()
 	if err != nil {
 		log.Println("ValidateArgs failed err == ", err.Error())
@@ -96,11 +107,11 @@ func (p *HttpRequestPlugin) Run() error {
 		log.Println("DoRequest failed err == ", err.Error())
 	}
 
-	p.SetOutputEnvVars()
+	p.SetOutputResults()
 	return nil
 }
 
-func (p *HttpRequestPlugin) DoRequest() error {
+func (p *Plugin) DoRequest() error {
 
 	err := p.CreateNewHttpRequest()
 	if err != nil {
@@ -113,33 +124,34 @@ func (p *HttpRequestPlugin) DoRequest() error {
 	p.CreateHttpClient()
 	p.SetIsHonorSsl()
 
-	p.HttpResponse, err = p.HttpClient.Do(p.HttpReq)
+	p.HttpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
 		return fmt.Errorf("error sending request: %v", err)
 	}
-	defer p.HttpResponse.Body.Close()
+	// defer p.HttpResponse.Body.Close()
 
 	p.SetHttpResponseEnvVars()
 	return nil
 
 }
 
-func (p *HttpRequestPlugin) CreateNewHttpRequest() error {
+func (p *Plugin) CreateNewHttpRequest() error {
 	var err error
-	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyBytes)
+
+	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
 	if err != nil {
-		return fmt.Errorf("error creating request: %v", err)
+		return fmt.Errorf("error creating request: %v", err.Error())
 	}
 	return nil
 }
 
-func (p *HttpRequestPlugin) CreateHttpClient() {
-	p.HttpClient = &http.Client{
+func (p *Plugin) CreateHttpClient() {
+	p.httpClient = &http.Client{
 		Timeout: p.TimeOutDuration,
 	}
 }
 
-func (p *HttpRequestPlugin) SetHttpResponseEnvVars() {
+func (p *Plugin) SetHttpResponseEnvVars() {
 	fmt.Printf("Response status: %s\n", p.HttpResponse.Status)
 	fmt.Println("Response headers:")
 	for key, values := range p.HttpResponse.Header {
@@ -147,22 +159,22 @@ func (p *HttpRequestPlugin) SetHttpResponseEnvVars() {
 	}
 }
 
-func (p *HttpRequestPlugin) SetIsHonorSsl() {
+func (p *Plugin) SetIsHonorSsl() {
 	if p.IgnoreSsl {
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
-		p.HttpClient.Transport = transport
+		p.httpClient.Transport = transport
 	}
 }
 
-func (p *HttpRequestPlugin) SetAuthBasic() {
+func (p *Plugin) SetAuthBasic() {
 	if p.AuthUser != "" && p.AuthPass != "" {
 		p.HttpReq.SetBasicAuth(p.AuthUser, p.AuthPass)
 	}
 }
 
-func (p *HttpRequestPlugin) SetTimeout() {
+func (p *Plugin) SetTimeout() {
 	timeout := time.Duration(60) * time.Second
 	if p.Timeout != 0 {
 		timeout = time.Duration(p.Timeout) * time.Second
@@ -170,7 +182,7 @@ func (p *HttpRequestPlugin) SetTimeout() {
 	p.TimeOutDuration = timeout
 }
 
-func (p *HttpRequestPlugin) SetHeaders() {
+func (p *Plugin) SetHeaders() {
 	headersStr := p.Headers
 	if headersStr != "" {
 		headers := strings.Split(headersStr, ",")
@@ -181,20 +193,11 @@ func (p *HttpRequestPlugin) SetHeaders() {
 	}
 }
 
-func (p *HttpRequestPlugin) SetOutputEnvVars() {
-
-	outputEnvVars := OutputEnvVars{
-		ResponseStatus:  200,
-		ResponseContent: "",
-		ResponseHeaders: "",
-		ResponseFile:    "",
-	}
-
-	// Write the output environment variables to the standard output
-	writeCard("/dev/stdout", "drone", outputEnvVars)
+func (p *Plugin) SetOutputResults() {
+	//writeCard("/dev/stdout", "drone", outputEnvVars)
 }
 
-func (p *HttpRequestPlugin) ValidateArgs() error {
+func (p *Plugin) ValidateArgs() error {
 
 	if p.ValidateUrl() != nil {
 		return errors.New("url is required")
@@ -215,7 +218,7 @@ func (p *HttpRequestPlugin) ValidateArgs() error {
 	return nil
 }
 
-func (p *HttpRequestPlugin) ValidateAuthBasic() error {
+func (p *Plugin) ValidateAuthBasic() error {
 
 	authBasic := p.AuthBasic
 
@@ -253,28 +256,28 @@ func (p *HttpRequestPlugin) ValidateAuthBasic() error {
 	return nil
 }
 
-func (p *HttpRequestPlugin) ValidateRequestBody() error {
+func (p *Plugin) ValidateRequestBody() error {
 
 	bodyStr := p.RequestBody
 	method := p.HttpMethod
 
 	if bodyStr != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
-		p.BodyBytes = bytes.NewBuffer([]byte(bodyStr))
+		p.BodyIoReader = strings.NewReader(p.RequestBody)
 	} else {
-		p.BodyBytes = nil
+		p.BodyIoReader = nil
 	}
 
-	return nil // body can be empty in most cases
+	return nil
 }
 
-func (p *HttpRequestPlugin) ValidateUrl() error {
+func (p *Plugin) ValidateUrl() error {
 	if p.Url == "" {
 		return errors.New("url is required")
 	}
 	return nil
 }
 
-func (p *HttpRequestPlugin) ValidateHttpMethod(httpMethod string) error {
+func (p *Plugin) ValidateHttpMethod(httpMethod string) error {
 
 	if httpMethod == "" {
 		p.HttpMethod = "GET"
@@ -290,7 +293,7 @@ func (p *HttpRequestPlugin) ValidateHttpMethod(httpMethod string) error {
 	}
 }
 
-func (p *HttpRequestPlugin) ValidateHeader(headerStr string) error {
+func (p *Plugin) ValidateHeader(headerStr string) error {
 
 	headersList := strings.Split(headerStr, ",")
 
