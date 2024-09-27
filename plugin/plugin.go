@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -57,6 +58,7 @@ type PluginProcessingInfo struct {
 	httpClient       *http.Client
 	httpResponse     *http.Response
 	isConnectionOpen bool
+	proxyUrl         *url.URL
 }
 
 type PluginExecResultsCard struct {
@@ -108,16 +110,18 @@ func (p *Plugin) Run() error {
 	err := p.ValidateArgs()
 	if err != nil {
 		log.Println("ValidateArgs failed err == ", err.Error())
+		return err
 	}
 
 	err = p.DoRequest()
 	if err != nil {
 		log.Println("DoRequest failed err == ", err.Error())
+		return err
 	}
 
 	err = p.StoreHttpResponseResults()
 	if err != nil {
-		return errors.New("error storing response results")
+		return err
 	}
 	return nil
 }
@@ -133,12 +137,12 @@ func (p *Plugin) CreateNewHttpRequest() error {
 
 	p.HttpReq, err = http.NewRequestWithContext(ctx, p.HttpMethod, p.Url, p.BodyIoReader)
 	if err != nil {
-		return fmt.Errorf("error creating request: %v", err)
+		return err
 	}
 
 	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
 	if err != nil {
-		return fmt.Errorf("error creating request: %v", err.Error())
+		return err
 	}
 	return nil
 }
@@ -147,20 +151,24 @@ func (p *Plugin) DoRequest() error {
 
 	err := p.CreateNewHttpRequest()
 	if err != nil {
-		return fmt.Errorf("error creating request: %v", err)
+		return err
 	}
 
 	p.SetHeaders()
 	p.SetAuthBasic()
 	p.CreateHttpClient()
-	p.SetIsHonorSsl()
+
+	err = p.SetHttpConnectionParameters()
+	if err != nil {
+		return err
+	}
 
 	p.httpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("request timed out after %v", p.TimeOutDuration)
+			fmt.Println("request timed out")
 		}
-		return fmt.Errorf("error sending request: %v", err)
+		return err
 	}
 	p.isConnectionOpen = true
 
@@ -220,13 +228,13 @@ func (p *Plugin) WriteResponseToFile() error {
 
 	outFile, err := os.Create(p.OutputFile)
 	if err != nil {
-		return fmt.Errorf("error creating output file: %v", err)
+		return err
 	}
 	defer outFile.Close()
 
 	_, err = io.Copy(outFile, p.httpResponse.Body)
 	if err != nil {
-		return fmt.Errorf("error saving response to file: %v", err)
+		return err
 	}
 
 	return nil
@@ -256,27 +264,12 @@ func (p *Plugin) SetHttpResponseEnvVars() {
 	}
 }
 
-func (p *Plugin) SetIsHonorSsl() {
+func (p *Plugin) SetSslCert() {
 
-	var tlsConfig *tls.Config
-
-	tlsConfig = &tls.Config{
-		InsecureSkipVerify: p.IgnoreSsl,
+	if p.AuthCert == "" || p.IgnoreSsl {
+		return
 	}
 
-	if p.AuthCert != "" && !p.IgnoreSsl {
-		cert, err := tls.LoadX509KeyPair(p.AuthCert, p.AuthCert)
-		if err != nil {
-			log.Fatalf("error loading certificate: %v", err)
-		}
-		tlsConfig.Certificates = []tls.Certificate{cert}
-	}
-
-	if tlsConfig != nil {
-		p.httpClient.Transport = &http.Transport{
-			TLSClientConfig: tlsConfig,
-		}
-	}
 }
 
 func (p *Plugin) SetAuthBasic() {
@@ -350,17 +343,17 @@ func (p *Plugin) ValidateAuthCert() error {
 	}
 
 	if _, err := os.Stat(p.AuthCert); os.IsNotExist(err) {
-		return fmt.Errorf("certificate file not found: %s", p.AuthCert)
+		return err
 	}
 
 	cert, err := ioutil.ReadFile(p.AuthCert)
 	if err != nil {
-		return fmt.Errorf("error reading certificate file: %v", err)
+		return err
 	}
 
 	_, err = tls.X509KeyPair(cert, cert)
 	if err != nil {
-		return fmt.Errorf("invalid certificate format: %v", err)
+		return err
 	}
 
 	return nil

@@ -27,8 +27,16 @@ var enableTests = map[string]bool{
 	"TestOptionsRequest":             true,
 	"TestMkcolRequest":               true,
 	"TestMKCOLWithLocalWebDAVServer": true,
-	"TestGetRequestAndWriteToFile":   true,
-	//"TestPluginWithCustomSslCert":    true,
+
+	"TestGetRequestAndWriteToFile":       true,
+	"TestSSlRequiredNoClientCertNoProxy": true,
+	"TestSSlRequiredClientCertNoProxy":   true,
+	"TestSslSkippingNoClientCertNoProxy": true,
+	"TestSslSkippingClientCertNoProxy":   true,
+	//"TestSSlRequiredNoClientCertProxyEnabled": true,
+	//"TestSSlRequiredClientCertProxyEnabled":   true,
+	//"TestSslSkippingNoClientCertProxyEnabled": true,
+	//"TestSslSkippingClientCertProxyEnabled":   true,
 }
 
 func TestGetRequest(t *testing.T) {
