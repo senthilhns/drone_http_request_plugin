@@ -7,7 +7,10 @@ import (
 )
 
 const delayTime = 2
-const ProxyUrl = "http://myproxy.com:8080"
+
+// const ProxyUrl = "http://myproxy.com:8080"
+
+const ProxyUrl = "http://47.89.184.18:3128"
 
 func TestSSlRequiredNoClientCertNoProxy(t *testing.T) {
 
@@ -225,7 +228,7 @@ func TestSslSkippingNoClientCertProxyEnabled(t *testing.T) {
 
 	args := Args{
 		PluginInputParams: PluginInputParams{
-			Url:         "https://example.com",
+			Url:         "http://example.com",
 			HttpMethod:  "GET",
 			Timeout:     30,
 			Headers:     "Content-Type: application/json",

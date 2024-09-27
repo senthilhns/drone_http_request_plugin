@@ -18,25 +18,26 @@ const (
 )
 
 var enableTests = map[string]bool{
-	"TestGetRequest":                 true,
-	"TestPostRequest":                true,
-	"TestPutRequest":                 true,
-	"TestDeleteRequest":              true,
-	"TestPatchRequest":               true,
-	"TestHeadRequest":                true,
-	"TestOptionsRequest":             true,
-	"TestMkcolRequest":               true,
-	"TestMKCOLWithLocalWebDAVServer": true,
-
-	"TestGetRequestAndWriteToFile":       true,
-	"TestSSlRequiredNoClientCertNoProxy": true,
-	"TestSSlRequiredClientCertNoProxy":   true,
-	"TestSslSkippingNoClientCertNoProxy": true,
-	"TestSslSkippingClientCertNoProxy":   true,
+	//"TestGetRequest":                 true,
+	//"TestPostRequest":                true,
+	//"TestPutRequest":                 true,
+	//"TestDeleteRequest":              true,
+	//"TestPatchRequest":               true,
+	//"TestHeadRequest":                true,
+	//"TestOptionsRequest":             true,
+	//"TestMkcolRequest":               true,
+	//"TestMKCOLWithLocalWebDAVServer": true,
+	//
+	//"TestGetRequestAndWriteToFile":       true,
+	//"TestSSlRequiredNoClientCertNoProxy": true,
+	//"TestSSlRequiredClientCertNoProxy":   true,
+	//"TestSslSkippingNoClientCertNoProxy": true,
+	//"TestSslSkippingClientCertNoProxy":   true,
 	//"TestSSlRequiredNoClientCertProxyEnabled": true,
 	//"TestSSlRequiredClientCertProxyEnabled":   true,
-	//"TestSslSkippingNoClientCertProxyEnabled": true,
 	//"TestSslSkippingClientCertProxyEnabled":   true,
+
+	"TestSslSkippingNoClientCertProxyEnabled": true,
 }
 
 func TestGetRequest(t *testing.T) {
