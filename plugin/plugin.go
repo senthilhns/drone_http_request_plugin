@@ -169,9 +169,17 @@ func (p *Plugin) DoRequest() error {
 		return err
 	}
 
-	p.SetHeaders()
-	p.SetAuthBasic()
-	p.CreateHttpClient()
+	err = p.SetHeaders()
+	if err != nil {
+		return err
+	}
+
+	err = p.SetAuthBasic()
+	if err != nil {
+		return err
+	}
+
+	p.GetNewHttpClient()
 
 	err = p.SetHttpConnectionParameters()
 	if err != nil {
@@ -287,7 +295,7 @@ func (p *Plugin) WriteResponseToFile() error {
 	return nil
 }
 
-func (p *Plugin) CreateHttpClient() {
+func (p *Plugin) GetNewHttpClient() {
 	p.httpClient = &http.Client{
 		Timeout: p.TimeOutDuration,
 	}
