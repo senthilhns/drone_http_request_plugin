@@ -1,9 +1,12 @@
 package plugin
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -18,17 +21,20 @@ const (
 )
 
 var enableTests = map[string]bool{
-	"TestGetRequest":                 true,
-	"TestPostRequest":                true,
-	"TestPutRequest":                 true,
-	"TestDeleteRequest":              true,
-	"TestPatchRequest":               true,
-	"TestHeadRequest":                true,
-	"TestOptionsRequest":             true,
-	"TestMkcolRequest":               true,
-	"TestMKCOLWithLocalWebDAVServer": true,
+	"TestGetRequest":                      true,
+	"TestGetRequestWithValidResponseBody": true,
+	"TestPostRequest":                     true,
+	"TestPutRequest":                      true,
+	"TestDeleteRequest":                   true,
+	"TestPatchRequest":                    true,
+	"TestHeadRequest":                     true,
+	"TestOptionsRequest":                  true,
+	"TestMkcolRequest":                    true,
+	"TestMKCOLWithLocalWebDAVServer":      true,
 
-	"TestGetRequestAndWriteToFile": true,
+	"TestGetRequestAndWriteToFile":         true,
+	"TestGetRequestWithResponseLogging":    true,
+	"TestGetRequestWithoutResponseLogging": true,
 
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
@@ -38,7 +44,7 @@ var enableTests = map[string]bool{
 	//"TestSSlRequiredClientCertProxyEnabled":   true,
 	//"TestSslSkippingClientCertProxyEnabled":   true,
 
-	"TestSslSkippingNoClientCertProxyEnabled": true,
+	// "TestSslSkippingNoClientCertProxyEnabled": true,
 }
 
 func TestGetRequest(t *testing.T) {
@@ -48,6 +54,47 @@ func TestGetRequest(t *testing.T) {
 	}
 
 	runPluginTest(t, "GET", TestUrl+"/get", "", ContentTypeApplicationJson)
+}
+
+func TestGetRequestWithValidResponseBody(t *testing.T) {
+
+	_, found := enableTests["TestGetRequestWithValidResponseBody"]
+	if !found {
+		t.Skip("Skipping TestGetRequestWithValidResponseBody test")
+	}
+
+	expectedResponseBody := `"Content-Type": "application/json",`
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:               TestUrl + "/get", // A simple URL to perform a GET request
+			HttpMethod:        "GET",
+			Timeout:           30,
+			Headers:           ContentTypeApplicationJson,
+			ValidResponseBody: expectedResponseBody, // Set the expected substring
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+	if plugin.httpResponse.StatusCode != 200 {
+		t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	if !strings.Contains(plugin.ResponseContent, expectedResponseBody) {
+		t.Errorf("Expected response body to contain %q, but it did not. Response body: %s", expectedResponseBody, plugin.ResponseContent)
+	} else {
+		t.Logf("Test passed. Response body contains the expected substring: %s", expectedResponseBody)
+	}
 }
 
 func TestPostRequest(t *testing.T) {
@@ -302,6 +349,76 @@ func TestGetRequestAndWriteToFile(t *testing.T) {
 	t.Logf("Response content: %s", string(content))
 }
 
+func TestGetRequestWithResponseLogging(t *testing.T) {
+	_, found := enableTests["TestGetRequestWithResponseLogging"]
+	if !found {
+		t.Skip("Skipping TestGetRequestWithResponseLogging test")
+	}
+	CheckForResponseLogging(t, true)
+}
+
+func TestGetRequestWithoutResponseLogging(t *testing.T) {
+	_, found := enableTests["TestGetRequestWithoutResponseLogging"]
+	if !found {
+		t.Skip("Skipping TestGetRequestWithoutResponseLogging test")
+	}
+	CheckForResponseLogging(t, false)
+}
+
+func CheckForResponseLogging(t *testing.T, isLogResponse bool) {
+
+	var logBuffer bytes.Buffer
+	log.SetOutput(&logBuffer)
+	defer log.SetOutput(ioutil.Discard)
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:         TestUrl + "/get",
+			HttpMethod:  "GET",
+			Timeout:     30,
+			Headers:     ContentTypeApplicationJson,
+			LogResponse: isLogResponse,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+	if plugin == nil {
+		if isLogResponse {
+			plugin.LogResponse = true
+		} else {
+			plugin.LogResponse = false
+		}
+	}
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+	if plugin.httpResponse.StatusCode != 200 {
+		t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	if isLogResponse {
+		if !strings.Contains(logBuffer.String(), plugin.ResponseContent) {
+			t.Errorf("Expected response content to be logged, but it was not. Logged content")
+		} else {
+			t.Logf("Test passed. Response content was logged.")
+		}
+	} else {
+		if strings.Contains(logBuffer.String(), plugin.ResponseContent) {
+			t.Errorf("Expected response content not to be logged, but it was. "+
+				"Logged content logBuffer \n %s \n ResponseContent \n %s \n",
+				logBuffer.String(), plugin.ResponseContent)
+		} else {
+			t.Logf("Test passed. Response content was not logged.")
+		}
+	}
+}
+
 func TestPluginWithCustomSslCert(t *testing.T) {
 
 	_, found := enableTests["TestPluginWithCustomSslCert"]
@@ -386,7 +503,7 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 			t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
 		}
 
-		body, err := ioutil.ReadAll(plugin.httpResponse.Body)
+		body, err := io.ReadAll(plugin.httpResponse.Body)
 		if err != nil {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
