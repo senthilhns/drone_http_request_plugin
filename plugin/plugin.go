@@ -57,6 +57,7 @@ type PluginProcessingInfo struct {
 	TimeOutDuration          time.Duration
 	httpClient               *http.Client
 	httpResponse             *http.Response
+	httpResponseBodyBytes    []byte
 	isConnectionOpen         bool
 	proxyUrl                 *url.URL
 }
@@ -99,6 +100,7 @@ func (p *Plugin) Init() error {
 
 func (p *Plugin) DeInit() error {
 	if p.isConnectionOpen {
+		p.isConnectionOpen = false
 		p.httpResponse.Body.Close()
 	}
 
@@ -174,7 +176,17 @@ func (p *Plugin) DoRequest() error {
 	}
 	p.isConnectionOpen = true
 
-	err = p.IsResponseOk()
+	err = p.IsResponseStatusOk()
+	if err != nil {
+		return err
+	}
+
+	err = p.StoreHttpResponse()
+	if err != nil {
+		return err
+	}
+
+	err = p.CheckForValidResponseBody()
 	if err != nil {
 		return err
 	}
@@ -182,7 +194,20 @@ func (p *Plugin) DoRequest() error {
 	return nil
 }
 
-func (p *Plugin) IsResponseOk() error {
+func (p *Plugin) CheckForValidResponseBody() error {
+
+	if len(p.ValidResponseBody) < 1 {
+		return nil
+	}
+
+	if strings.Contains(p.ResponseContent, p.ValidResponseBody) {
+		return nil
+	}
+
+	return errors.New("response body does not contain the expected string")
+}
+
+func (p *Plugin) IsResponseStatusOk() error {
 	if p.ResponseStatus < 200 && p.ResponseStatus > 299 {
 		return errors.New("bad response status")
 	}
@@ -203,18 +228,13 @@ func (p *Plugin) StoreHttpResponseResults() error {
 	}
 	p.ResponseHeaders = strings.Join(headers, "\n")
 
-	switch {
-	case len(p.OutputFile) > 0:
+	if len(p.OutputFile) > 0 {
 		err := p.WriteResponseToFile()
 		if err != nil {
 			return err
 		}
-	default:
-		err := p.SetResponseBody()
-		if err != nil {
-			return err
-		}
 	}
+
 	card := PluginExecResultsCard{
 		ResponseStatus:  p.ResponseStatus,
 		ResponseContent: p.ResponseContent,
@@ -226,6 +246,20 @@ func (p *Plugin) StoreHttpResponseResults() error {
 	return nil
 }
 
+func (p *Plugin) StoreHttpResponse() error {
+
+	var err error
+
+	p.httpResponseBodyBytes, err = io.ReadAll(p.httpResponse.Body)
+	if err != nil {
+		return err
+	}
+
+	p.ResponseContent = string(p.httpResponseBodyBytes)
+
+	return nil
+}
+
 func (p *Plugin) WriteResponseToFile() error {
 
 	outFile, err := os.Create(p.OutputFile)
@@ -234,21 +268,11 @@ func (p *Plugin) WriteResponseToFile() error {
 	}
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, p.httpResponse.Body)
+	_, err = io.Copy(outFile, strings.NewReader(p.ResponseContent))
 	if err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func (p *Plugin) SetResponseBody() error {
-	bodyBytes, err := ioutil.ReadAll(p.httpResponse.Body)
-	if err != nil {
-		LogPrintln(p, "error reading response body ", err.Error())
-		return err
-	}
-	p.ResponseContent = string(bodyBytes)
 	return nil
 }
 
