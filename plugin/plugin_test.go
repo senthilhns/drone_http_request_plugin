@@ -9,7 +9,9 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +38,8 @@ var enableTests = map[string]bool{
 	"TestGetRequestWithResponseLogging":    true,
 	"TestGetRequestWithoutResponseLogging": true,
 	"TestGetRequestWithQuietMode":          true,
+	"TestDirectFileUpload":                 true,
+	"TestMultipartFileUpload":              true,
 
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
@@ -68,11 +72,11 @@ func TestGetRequestWithValidResponseBody(t *testing.T) {
 
 	args := Args{
 		PluginInputParams: PluginInputParams{
-			Url:               TestUrl + "/get", // A simple URL to perform a GET request
+			Url:               TestUrl + "/get",
 			HttpMethod:        "GET",
 			Timeout:           30,
 			Headers:           ContentTypeApplicationJson,
-			ValidResponseBody: expectedResponseBody, // Set the expected substring
+			ValidResponseBody: expectedResponseBody,
 		},
 	}
 
@@ -318,11 +322,11 @@ func TestGetRequestAndWriteToFile(t *testing.T) {
 
 	args := Args{
 		PluginInputParams: PluginInputParams{
-			Url:        "https://httpbin.org/get", // A simple URL to perform a GET request
+			Url:        "https://httpbin.org/get",
 			HttpMethod: "GET",
 			Timeout:    30,
 			Headers:    ContentTypeApplicationJson,
-			OutputFile: outputFile, // Set the random output file
+			OutputFile: outputFile,
 		},
 	}
 
@@ -435,7 +439,7 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 
 	args := Args{
 		PluginInputParams: PluginInputParams{
-			Url:        "https://httpbin.org/get", // A simple URL to perform a GET request
+			Url:        "https://httpbin.org/get",
 			HttpMethod: "GET",
 			Timeout:    30,
 			Headers:    ContentTypeApplicationJson,
@@ -469,9 +473,6 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 		t.Errorf("Expected response content to be '%s', got '%s'", `{"status":"ok"}`, plugin.ResponseContent)
 	}
 }
-
-//
-//
 
 func runPluginTest(t *testing.T, method, url, body, headers string) {
 	args := Args{
@@ -508,7 +509,7 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 		if err != nil {
 			t.Fatalf("Failed to read response body: %v", err)
 		}
-		_ = body // You can log the body if necessary
+		_ = body
 	}
 
 	plugin.httpResponse.Body.Close()
@@ -520,10 +521,9 @@ func TestGetRequestWithQuietMode(t *testing.T) {
 		t.Skip("Skipping TestGetRequestWithQuietMode test")
 	}
 
-	// Prepare a buffer to capture log output
 	var logBuffer bytes.Buffer
 	log.SetOutput(&logBuffer)
-	defer log.SetOutput(ioutil.Discard) // Restore the default behavior after the test
+	defer log.SetOutput(io.Discard)
 
 	args := Args{
 		PluginInputParams: PluginInputParams{
@@ -556,4 +556,120 @@ func TestGetRequestWithQuietMode(t *testing.T) {
 	} else {
 		t.Logf("Test passed. No logs were written in Quiet mode.")
 	}
+}
+
+func TestMultipartFileUpload(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	filePath := filepath.Join(homeDir, "multipart-test.txt")
+	file, err := os.Create(filePath)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+	defer os.Remove(filePath)
+	file.WriteString("test content")
+	file.Close()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
+			t.Errorf("Expected multipart/form-data, got %s", r.Header.Get("Content-Type"))
+		}
+
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			t.Errorf("Error parsing multipart form: %v", err)
+		}
+
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			t.Errorf("Expected file, but got error: %v", err)
+		}
+		defer file.Close()
+
+		content, err := io.ReadAll(file)
+		if err != nil || string(content) != "test content" {
+			t.Errorf("Expected 'test content', but got %s", string(content))
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:             ts.URL,
+			HttpMethod:      "POST",
+			WrapAsMultipart: true,
+			UploadFile:      filePath,
+			MultiPartName:   "file",
+			Quiet:           true,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err = plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+}
+
+func TestDirectFileUpload(t *testing.T) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		t.Fatalf("Failed to get home directory: %v", err)
+	}
+
+	filePath := filepath.Join(homeDir, "multipart-test1.txt")
+	file, err := os.Create(filePath)
+	if err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
+
+	file.WriteString("test content")
+	defer file.Close()
+	defer os.Remove(filePath)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Content-Type") != "application/octet-stream" {
+			t.Errorf("Expected application/octet-stream, got %s", r.Header.Get("Content-Type"))
+		}
+		content, err := io.ReadAll(r.Body)
+		if err != nil || string(content) != "test content" {
+			t.Errorf("Expected 'test content', but got %s", string(content))
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:             ts.URL,
+			HttpMethod:      "POST",
+			WrapAsMultipart: false,
+			UploadFile:      filePath,
+			Quiet:           true,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err = plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
 }

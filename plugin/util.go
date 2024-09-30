@@ -77,5 +77,13 @@ func GetAbsolutePath(path string) (string, error) {
 	return absPath, nil
 }
 
+const (
+	Schema                 = "https://drone.github.io/drone-jira/card.json"
+	StdOut                 = "/dev/stdout"
+	ApplicationOctetStream = "application/octet-stream"
+	ApplicationJson        = "application/json"
+	ContentType            = "Content-Type"
+)
+
 //
 //

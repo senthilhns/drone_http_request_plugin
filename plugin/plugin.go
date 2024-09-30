@@ -127,6 +127,12 @@ func (p *Plugin) DeInit() error {
 		p.HttpRequestCancelContext = nil
 	}
 
+	if p.BodyIoReader != nil {
+		if closer, ok := p.BodyIoReader.(io.Closer); ok {
+			err = closer.Close()
+		}
+	}
+
 	LogPrintln(p, "DeInit() called")
 	return err
 }
@@ -530,17 +536,9 @@ func (p *Plugin) AddFileUploadDataWithoutMultiPart() error {
 
 	file, err := os.Open(p.uploadFileAbsolutePath)
 	if err != nil {
+		LogPrintln(p, "error opening file: ", err.Error())
 		return fmt.Errorf("error opening file: %v", err)
 	}
-
-	defer func() {
-		if err == nil {
-			err := file.Close()
-			if err != nil {
-				return
-			}
-		}
-	}()
 
 	p.BodyIoReader = file
 	p.ContentType = ApplicationOctetStream
@@ -577,10 +575,13 @@ func (p *Plugin) ValidateHttpMethod(httpMethod string) error {
 
 func (p *Plugin) ValidateHeader(headerStr string) error {
 
+	if headerStr == "" {
+		return nil
+	}
+
 	headersList := strings.Split(headerStr, ",")
 
 	for i, headerItem := range headersList {
-
 		headerItem = strings.TrimSpace(headerItem)
 		if i == 0 && headerItem == "" {
 			LogPrintln(p, `if i == 0 && headerItem == ""`)
@@ -608,14 +609,6 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 
 	return nil
 }
-
-const (
-	Schema                 = "https://drone.github.io/drone-jira/card.json"
-	StdOut                 = "/dev/stdout"
-	ApplicationOctetStream = "application/octet-stream"
-	ApplicationJson        = "application/json"
-	ContentType            = "Content-Type"
-)
 
 //
 //
