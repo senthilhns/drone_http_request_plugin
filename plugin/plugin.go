@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -405,7 +404,7 @@ func (p *Plugin) ValidateAuthCert() error {
 		return err
 	}
 
-	cert, err := ioutil.ReadFile(p.AuthCert)
+	cert, err := os.ReadFile(p.AuthCert)
 	if err != nil {
 		return err
 	}
