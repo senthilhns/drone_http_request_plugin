@@ -106,7 +106,7 @@ func (p *Plugin) DeInit() error {
 		p.HttpRequestCancelContext = nil
 	}
 
-	fmt.Println("DeInit() called")
+	LogPrintln("DeInit() called")
 	return nil
 }
 
@@ -167,7 +167,7 @@ func (p *Plugin) DoRequest() error {
 	p.httpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			fmt.Println("request timed out")
+			LogPrintln("request timed out")
 		}
 		return err
 	}
@@ -244,7 +244,7 @@ func (p *Plugin) WriteResponseToFile() error {
 func (p *Plugin) SetResponseBody() error {
 	bodyBytes, err := ioutil.ReadAll(p.httpResponse.Body)
 	if err != nil {
-		fmt.Println("error reading response body ", err.Error())
+		LogPrintln("error reading response body ", err.Error())
 		return err
 	}
 	p.ResponseContent = string(bodyBytes)
@@ -258,10 +258,9 @@ func (p *Plugin) CreateHttpClient() {
 }
 
 func (p *Plugin) SetHttpResponseEnvVars() {
-	fmt.Printf("Response status: %s\n", p.httpResponse.Status)
-	fmt.Println("Response headers:")
+	LogPrintf("Response status: %s\n", p.httpResponse.Status)
 	for key, values := range p.httpResponse.Header {
-		fmt.Printf("%s: %s\n", key, strings.Join(values, ","))
+		LogPrintf("%s: %s\n", key, strings.Join(values, ","))
 	}
 }
 
@@ -306,32 +305,32 @@ func (p *Plugin) SetHeaders() {
 func (p *Plugin) ValidateArgs() error {
 
 	if p.ValidateUrl() != nil {
-		fmt.Println("bad url")
+		LogPrintln("bad url")
 		return errors.New("url is required")
 	}
 
 	if p.ValidateHttpMethod(p.HttpMethod) != nil {
-		fmt.Println("invalid http_method")
+		LogPrintln("invalid http_method")
 		return errors.New("invalid http_method")
 	}
 
 	if p.ValidateHeader(p.Headers) != nil {
-		fmt.Println("malformed headers")
+		LogPrintln("malformed headers")
 		return errors.New("malformed headers")
 	}
 
 	if p.ValidateRequestBody() != nil {
-		fmt.Println("request_body is required")
+		LogPrintln("request_body is required")
 		return errors.New("request_body is required")
 	}
 
 	if p.ValidateAuthBasic() != nil {
-		fmt.Println("auth_basic info not good")
+		LogPrintln("auth_basic info not good")
 		return errors.New("auth_basic info not good")
 	}
 
 	if p.ValidateAuthCert() != nil {
-		fmt.Println("certificate file not found")
+		LogPrintln("certificate file not found")
 		return errors.New("certificate file not found")
 	}
 
@@ -424,26 +423,26 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 
 		headerItem = strings.TrimSpace(headerItem)
 		if i == 0 && headerItem == "" {
-			fmt.Println(`if i == 0 && headerItem == ""`)
+			LogPrintln(`if i == 0 && headerItem == ""`)
 			return errors.New("malformed header: empty header")
 		}
 
 		kvPair := strings.SplitN(headerItem, ":", 2)
 		if len(kvPair) != 2 {
-			fmt.Println(`if len(kvPair) != 2`)
-			return fmt.Errorf("malformed header: '%s' (missing colon)", headerItem)
+			LogPrintln(`if len(kvPair) != 2`)
+			return errors.New("malformed header: " + headerItem + " missing colon")
 		}
 
 		key := strings.TrimSpace(kvPair[0])
 		if key == "" {
-			fmt.Println(`if key == ""`)
-			return fmt.Errorf("malformed header: '%s' (empty header name)", headerItem)
+			LogPrintln(`if key == ""`)
+			return errors.New("malformed header: " + headerItem + " empty header name")
 		}
 
 		value := strings.TrimSpace(kvPair[1])
 		if value == "" {
-			fmt.Println(`if value == ""`)
-			return fmt.Errorf("malformed header: '%s' (empty header value)", headerItem)
+			LogPrintln(`if value == ""`)
+			return errors.New("malformed header: " + headerItem + " empty header value")
 		}
 	}
 

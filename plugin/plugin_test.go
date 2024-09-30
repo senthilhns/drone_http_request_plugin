@@ -373,7 +373,7 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 
 	err := plugin.Run()
 	if err != nil {
-		fmt.Println("Error: ", err.Error())
+		LogPrintln("Error: ", err.Error())
 		t.Fatalf("Run() returned an error: %v", err)
 	}
 

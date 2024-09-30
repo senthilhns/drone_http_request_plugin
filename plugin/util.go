@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 )
 
@@ -30,7 +31,7 @@ func writeCard(path, schema string, card interface{}) {
 func writeCardTo(out io.Writer, data []byte) {
 
 	if os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE" {
-		// fmt.Println("TMP_PLUGIN_LOCAL_TESTING is TRUE, skipping writing card")
+		LogPrintln("writeCardTo TMP_PLUGIN_LOCAL_TESTING is TRUE, skipping writing card")
 		return
 	}
 
@@ -39,6 +40,14 @@ func writeCardTo(out io.Writer, data []byte) {
 	io.WriteString(out, encoded)
 	io.WriteString(out, "\u001B]0m")
 	io.WriteString(out, "\n")
+}
+
+func LogPrintln(args ...interface{}) {
+	log.Println(append([]interface{}{"Plugin Info:"}, args...)...)
+}
+
+func LogPrintf(format string, args ...interface{}) {
+	log.Printf("Plugin Info: "+format, args...)
 }
 
 //

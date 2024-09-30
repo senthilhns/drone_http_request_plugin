@@ -2,7 +2,7 @@ package plugin
 
 import (
 	"crypto/tls"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/url"
 )
@@ -32,8 +32,7 @@ func (p *Plugin) SetHttpConnectionParameters() error {
 	isClientCert := p.SslCertPath != ""
 	isProxy := p.Proxy != ""
 
-	fmt.Println("Configuration:")
-	fmt.Printf("Ignore SSL: %t, Client Cert: %t, Proxy: %t\n", isIgnoreSsl, isClientCert, isProxy)
+	LogPrintf("Configuration Ignore SSL: %t, Client Cert: %t, Proxy: %t\n", isIgnoreSsl, isClientCert, isProxy)
 
 	var err error
 
@@ -182,7 +181,7 @@ func setupNoSslWithClientCertWithProxy(certPath string, proxy string) (*http.Cli
 func createTlsConfigWithClientCert(certPath string, ignoreSsl bool) (*tls.Config, error) {
 	cert, err := tls.LoadX509KeyPair(certPath, certPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load client certificate: %v", err)
+		return nil, errors.New("failed to load client certificate " + certPath + " " + err.Error())
 	}
 	return &tls.Config{
 		Certificates:       []tls.Certificate{cert},
@@ -194,7 +193,7 @@ func createTlsConfigWithClientCert(certPath string, ignoreSsl bool) (*tls.Config
 func createTransportWithProxy(proxyUrl string, tlsConfig *tls.Config) (*http.Transport, error) {
 	proxy, err := url.Parse(proxyUrl)
 	if err != nil {
-		return nil, fmt.Errorf("invalid proxy URL: %v", err)
+		return nil, errors.New("invalid proxy URL: " + err.Error())
 	}
 	return &http.Transport{
 		Proxy:           http.ProxyURL(proxy),
