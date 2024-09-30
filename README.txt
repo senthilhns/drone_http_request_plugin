@@ -1,3 +1,15 @@
+
+
+$ boilr template download drone/boilr-plugin drone-plugin
+
+$ boilr template use drone-plugin my-drone-plugin
+
+Please choose a value for "DockerRepository" [default: "owner/name"]:
+Please choose a value for "Description"
+Please choose a value for "GoModule" [default: "github.com/owner/name":
+Please choose a value for "GoModule
+
+
 docker run --rm -e PLUGIN_PARAM1=foo -e PLUGIN_PARAM2=bar \
   -e DRONE_COMMIT_SHA=8f51ad7884c5eb69c11d260a31da7a745e6b78e2 \
   -e DRONE_COMMIT_BRANCH=master \
@@ -11,3 +23,6 @@ docker run --rm -e PLUGIN_URL=foo \
   -w /drone/src \
   -v $(pwd):/drone/src \
   senthilhns/drone_http_request_plugin
+
+#
+#

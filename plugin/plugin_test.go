@@ -29,10 +29,11 @@ var enableTests = map[string]bool{
 	//"TestMKCOLWithLocalWebDAVServer": true,
 	//
 	//"TestGetRequestAndWriteToFile":       true,
-	//"TestSSlRequiredNoClientCertNoProxy": true,
-	//"TestSSlRequiredClientCertNoProxy":   true,
-	//"TestSslSkippingNoClientCertNoProxy": true,
-	//"TestSslSkippingClientCertNoProxy":   true,
+
+	"TestSSlRequiredNoClientCertNoProxy": true,
+	"TestSSlRequiredClientCertNoProxy":   true,
+	"TestSslSkippingNoClientCertNoProxy": true,
+	"TestSslSkippingClientCertNoProxy":   true,
 	//"TestSSlRequiredNoClientCertProxyEnabled": true,
 	//"TestSSlRequiredClientCertProxyEnabled":   true,
 	//"TestSslSkippingClientCertProxyEnabled":   true,

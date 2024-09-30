@@ -140,10 +140,11 @@ func (p *Plugin) CreateNewHttpRequest() error {
 		return err
 	}
 
-	p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
-	if err != nil {
-		return err
-	}
+	//p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
+	//if err != nil {
+	//	return err
+	//}
+
 	return nil
 }
 
