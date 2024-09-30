@@ -6,6 +6,7 @@ package main
 
 import (
 	"context"
+	"log"
 
 	"x/y/plugin"
 
@@ -14,6 +15,9 @@ import (
 )
 
 func main() {
+
+	logInit()
+
 	logrus.SetFormatter(new(formatter))
 
 	var args plugin.Args
@@ -31,13 +35,14 @@ func main() {
 	}
 
 	if err := plugin.Exec(context.Background(), args); err != nil {
-		logrus.Fatalln(err)	
+		logrus.Fatalln(err)
 	}
 }
 
 // default formatter that writes logs without including timestamp
 // or level information.
-type formatter struct {}
+type formatter struct{}
+
 func (*formatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return []byte(entry.Message), nil
 }
@@ -45,4 +50,8 @@ func (*formatter) Format(entry *logrus.Entry) ([]byte, error) {
 // text formatter that writes logs with level information
 var textFormatter = &logrus.TextFormatter{
 	DisableTimestamp: true,
+}
+
+func logInit() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 }

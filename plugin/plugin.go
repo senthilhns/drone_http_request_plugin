@@ -49,16 +49,16 @@ type PluginInputParams struct {
 }
 
 type PluginProcessingInfo struct {
-	AuthUser string
-	AuthPass string
-	//BodyBytes       *bytes.Buffer
-	BodyIoReader     io.Reader
-	HttpReq          *http.Request
-	TimeOutDuration  time.Duration
-	httpClient       *http.Client
-	httpResponse     *http.Response
-	isConnectionOpen bool
-	proxyUrl         *url.URL
+	AuthUser                 string
+	AuthPass                 string
+	HttpRequestCancelContext context.CancelFunc
+	BodyIoReader             io.Reader
+	HttpReq                  *http.Request
+	TimeOutDuration          time.Duration
+	httpClient               *http.Client
+	httpResponse             *http.Response
+	isConnectionOpen         bool
+	proxyUrl                 *url.URL
 }
 
 type PluginExecResultsCard struct {
@@ -101,6 +101,11 @@ func (p *Plugin) DeInit() error {
 		p.httpResponse.Body.Close()
 	}
 
+	if p.HttpRequestCancelContext != nil {
+		p.HttpRequestCancelContext()
+		p.HttpRequestCancelContext = nil
+	}
+
 	fmt.Println("DeInit() called")
 	return nil
 }
@@ -129,9 +134,9 @@ func (p *Plugin) Run() error {
 func (p *Plugin) CreateNewHttpRequest() error {
 
 	p.SetTimeout()
+	var ctx context.Context
 
-	ctx, cancel := context.WithTimeout(context.Background(), p.TimeOutDuration)
-	defer cancel()
+	ctx, p.HttpRequestCancelContext = context.WithTimeout(context.Background(), p.TimeOutDuration)
 
 	var err error
 
@@ -139,11 +144,6 @@ func (p *Plugin) CreateNewHttpRequest() error {
 	if err != nil {
 		return err
 	}
-
-	//p.HttpReq, err = http.NewRequest(p.HttpMethod, p.Url, p.BodyIoReader)
-	//if err != nil {
-	//	return err
-	//}
 
 	return nil
 }

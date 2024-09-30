@@ -18,22 +18,22 @@ const (
 )
 
 var enableTests = map[string]bool{
-	//"TestGetRequest":                 true,
-	//"TestPostRequest":                true,
-	//"TestPutRequest":                 true,
-	//"TestDeleteRequest":              true,
-	//"TestPatchRequest":               true,
-	//"TestHeadRequest":                true,
-	//"TestOptionsRequest":             true,
-	//"TestMkcolRequest":               true,
-	//"TestMKCOLWithLocalWebDAVServer": true,
-	//
-	//"TestGetRequestAndWriteToFile":       true,
+	"TestGetRequest":                 true,
+	"TestPostRequest":                true,
+	"TestPutRequest":                 true,
+	"TestDeleteRequest":              true,
+	"TestPatchRequest":               true,
+	"TestHeadRequest":                true,
+	"TestOptionsRequest":             true,
+	"TestMkcolRequest":               true,
+	"TestMKCOLWithLocalWebDAVServer": true,
 
-	"TestSSlRequiredNoClientCertNoProxy": true,
-	"TestSSlRequiredClientCertNoProxy":   true,
-	"TestSslSkippingNoClientCertNoProxy": true,
-	"TestSslSkippingClientCertNoProxy":   true,
+	"TestGetRequestAndWriteToFile": true,
+
+	//"TestSSlRequiredNoClientCertNoProxy": true,
+	//"TestSSlRequiredClientCertNoProxy":   true,
+	//"TestSslSkippingNoClientCertNoProxy": true,
+	//"TestSslSkippingClientCertNoProxy":   true,
 	//"TestSSlRequiredNoClientCertProxyEnabled": true,
 	//"TestSSlRequiredClientCertProxyEnabled":   true,
 	//"TestSslSkippingClientCertProxyEnabled":   true,
@@ -102,46 +102,6 @@ func TestOptionsRequest(t *testing.T) {
 	}
 
 	runPluginTest(t, "OPTIONS", TestUrl+"/get", "", ContentTypeApplicationJson)
-}
-
-func runPluginTest(t *testing.T, method, url, body, headers string) {
-	args := Args{
-		PluginInputParams: PluginInputParams{
-			Url:         url,
-			HttpMethod:  method,
-			Timeout:     30,
-			Headers:     headers,
-			RequestBody: body,
-		},
-	}
-
-	plugin := &Plugin{
-		Args:                 args,
-		PluginProcessingInfo: PluginProcessingInfo{},
-	}
-
-	err := plugin.Run()
-	if err != nil {
-		t.Fatalf("Run() returned an error: %v", err)
-	}
-
-	defer func() {
-		plugin.DeInit()
-	}()
-
-	if method != "HEAD" && method != "OPTIONS" {
-		if plugin.httpResponse.StatusCode != 200 {
-			t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
-		}
-
-		body, err := ioutil.ReadAll(plugin.httpResponse.Body)
-		if err != nil {
-			t.Fatalf("Failed to read response body: %v", err)
-		}
-		_ = body // You can log the body if necessary
-	}
-
-	plugin.httpResponse.Body.Close()
 }
 
 func TestBadHeaders(t *testing.T) {
@@ -394,3 +354,44 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 
 //
 //
+
+func runPluginTest(t *testing.T, method, url, body, headers string) {
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:         url,
+			HttpMethod:  method,
+			Timeout:     30,
+			Headers:     headers,
+			RequestBody: body,
+		},
+	}
+
+	plugin := &Plugin{
+		Args:                 args,
+		PluginProcessingInfo: PluginProcessingInfo{},
+	}
+
+	err := plugin.Run()
+	if err != nil {
+		fmt.Println("Error: ", err.Error())
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+	if method != "HEAD" && method != "OPTIONS" {
+		if plugin.httpResponse.StatusCode != 200 {
+			t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+		}
+
+		body, err := ioutil.ReadAll(plugin.httpResponse.Body)
+		if err != nil {
+			t.Fatalf("Failed to read response body: %v", err)
+		}
+		_ = body // You can log the body if necessary
+	}
+
+	plugin.httpResponse.Body.Close()
+}
