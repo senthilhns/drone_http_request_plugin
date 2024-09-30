@@ -79,16 +79,24 @@ type Plugin struct {
 
 func Exec(ctx context.Context, args Args) error {
 
-	Plugin := GetNewPlugin(args)
-	err := Plugin.Run()
+	plugin := GetNewPlugin(args)
+
+	plugin.Init()
+
+	err := plugin.Run()
 	if err != nil {
 		return err
 	}
+
+	err = plugin.DeInit()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func GetNewPlugin(args Args) *Plugin {
-
 	return &Plugin{
 		Args: args,
 	}
@@ -99,9 +107,12 @@ func (p *Plugin) Init() error {
 }
 
 func (p *Plugin) DeInit() error {
+
+	var err error
+
 	if p.isConnectionOpen {
 		p.isConnectionOpen = false
-		p.httpResponse.Body.Close()
+		err = p.httpResponse.Body.Close()
 	}
 
 	if p.HttpRequestCancelContext != nil {
@@ -110,7 +121,7 @@ func (p *Plugin) DeInit() error {
 	}
 
 	LogPrintln(p, "DeInit() called")
-	return nil
+	return err
 }
 
 func (p *Plugin) Run() error {
