@@ -301,22 +301,25 @@ func (p *Plugin) SetHttpResponseEnvVars() {
 }
 
 func (p *Plugin) SetSslCert() {
-
 	if p.AuthCert == "" || p.IgnoreSsl {
 		return
 	}
-
 }
 
-func (p *Plugin) SetAuthBasic() {
+func (p *Plugin) SetAuthBasic() error {
 
-	if p.AuthBasic != "" {
-		return
+	if p.AuthBasic == "" {
+		return nil
+	}
+
+	if p.HttpReq == nil {
+		return errors.New("SetAuthBasic http request is nil")
 	}
 
 	if p.AuthUser != "" && p.AuthPass != "" {
 		p.HttpReq.SetBasicAuth(p.AuthUser, p.AuthPass)
 	}
+	return nil
 }
 
 func (p *Plugin) SetTimeout() {
@@ -327,8 +330,18 @@ func (p *Plugin) SetTimeout() {
 	p.TimeOutDuration = time.Duration(p.Timeout) * time.Second
 }
 
-func (p *Plugin) SetHeaders() {
+func (p *Plugin) SetHeaders() error {
+
 	headersStr := p.Headers
+
+	if headersStr == "" {
+		return nil
+	}
+
+	if p.HttpReq == nil {
+		return errors.New("http request is nil")
+	}
+
 	if headersStr != "" {
 		headers := strings.Split(headersStr, ",")
 		for _, header := range headers {
@@ -336,6 +349,8 @@ func (p *Plugin) SetHeaders() {
 			p.HttpReq.Header.Set(strings.TrimSpace(kvPair[0]), strings.TrimSpace(kvPair[1]))
 		}
 	}
+
+	return nil
 }
 
 func (p *Plugin) ValidateArgs() error {
