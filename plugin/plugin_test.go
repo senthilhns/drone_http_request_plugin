@@ -35,6 +35,7 @@ var enableTests = map[string]bool{
 	"TestGetRequestAndWriteToFile":         true,
 	"TestGetRequestWithResponseLogging":    true,
 	"TestGetRequestWithoutResponseLogging": true,
+	"TestGetRequestWithQuietMode":          true,
 
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
@@ -511,4 +512,48 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 	}
 
 	plugin.httpResponse.Body.Close()
+}
+
+func TestGetRequestWithQuietMode(t *testing.T) {
+	_, found := enableTests["TestGetRequestWithQuietMode"]
+	if !found {
+		t.Skip("Skipping TestGetRequestWithQuietMode test")
+	}
+
+	// Prepare a buffer to capture log output
+	var logBuffer bytes.Buffer
+	log.SetOutput(&logBuffer)
+	defer log.SetOutput(ioutil.Discard) // Restore the default behavior after the test
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:         TestUrl + "/get",
+			HttpMethod:  "GET",
+			Timeout:     30,
+			Headers:     ContentTypeApplicationJson,
+			LogResponse: true,
+			Quiet:       true,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+	if plugin.httpResponse.StatusCode != 200 {
+		t.Errorf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	if logBuffer.Len() > 0 {
+		t.Errorf("Expected no logs in Quiet mode, but some logs were written: %s", logBuffer.String())
+	} else {
+		t.Logf("Test passed. No logs were written in Quiet mode.")
+	}
 }

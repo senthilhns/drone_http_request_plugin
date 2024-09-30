@@ -43,7 +43,6 @@ func writeCardTo(p *Plugin, out io.Writer, data []byte) {
 }
 
 func LogPrintln(p *Plugin, args ...interface{}) {
-
 	if p != nil {
 		if p.Quiet {
 			return
@@ -54,7 +53,6 @@ func LogPrintln(p *Plugin, args ...interface{}) {
 }
 
 func LogPrintf(p *Plugin, format string, args ...interface{}) {
-
 	if p != nil {
 		if p.Quiet {
 			return

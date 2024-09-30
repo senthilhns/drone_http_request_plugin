@@ -236,7 +236,7 @@ func (p *Plugin) IsResponseStatusOk() error {
 func (p *Plugin) StoreHttpResponseResults() error {
 
 	if p.LogResponse {
-		log.Println("Response Body:", p.ResponseContent)
+		LogPrintln(p, p.ResponseContent)
 	}
 
 	headers := make([]string, 0, len(p.httpResponse.Header))
