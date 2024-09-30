@@ -7,10 +7,12 @@ package plugin
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 )
 
 func writeCard(p *Plugin, path, schema string, card interface{}) {
@@ -60,6 +62,19 @@ func LogPrintf(p *Plugin, format string, args ...interface{}) {
 	}
 
 	log.Printf("Plugin Info: "+format, args...)
+}
+
+func GetAbsolutePath(path string) (string, error) {
+	if filepath.IsAbs(path) {
+		return path, nil
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("error getting absolute path: %v", err)
+	}
+
+	return absPath, nil
 }
 
 //

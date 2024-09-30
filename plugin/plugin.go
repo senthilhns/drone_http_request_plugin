@@ -5,15 +5,18 @@
 package plugin
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -32,6 +35,7 @@ type PluginInputParams struct {
 	Url                string `envconfig:"PLUGIN_URL"`
 	HttpMethod         string `envconfig:"PLUGIN_HTTP_METHOD"`
 	Headers            string `envconfig:"PLUGIN_HEADERS"`
+	ContentType        string `envconfig:"PLUGIN_CONTENT_TYPE"`
 	RequestBody        string `envconfig:"PLUGIN_REQUEST_BODY"`
 	AuthBasic          string `envconfig:"PLUGIN_AUTH_BASIC"`
 	AuthCert           string `envconfig:"PLUGIN_AUTH_CERT"`
@@ -41,8 +45,11 @@ type PluginInputParams struct {
 	IgnoreSsl          bool   `envconfig:"PLUGIN_IGNORE_SSL"`
 	Proxy              string `envconfig:"PLUGIN_PROXY"`
 	OutputFile         string `envconfig:"PLUGIN_OUTPUT_FILE"`
+	AcceptType         string `envconfig:"PLUGIN_ACCEPT_TYPE"`
 	LogResponse        bool   `envconfig:"PLUGIN_LOG_RESPONSE"`
 	Quiet              bool   `envconfig:"PLUGIN_QUIET"`
+	UploadFile         string `envconfig:"PLUGIN_UPLOAD_FILE"`
+	MultiPartName      string `envconfig:"PLUGIN_MULTIPART_NAME"`
 	WrapAsMultipart    bool   `envconfig:"PLUGIN_WRAP_AS_MULTIPART"`
 	SslCertPath        string `envconfig:"PLUGIN_SSL_CERT_PATH"`
 }
@@ -59,6 +66,7 @@ type PluginProcessingInfo struct {
 	httpResponseBodyBytes    []byte
 	isConnectionOpen         bool
 	proxyUrl                 *url.URL
+	uploadFileAbsolutePath   string
 }
 
 type PluginExecResultsCard struct {
@@ -156,6 +164,12 @@ func (p *Plugin) CreateNewHttpRequest() error {
 	p.HttpReq, err = http.NewRequestWithContext(ctx, p.HttpMethod, p.Url, p.BodyIoReader)
 	if err != nil {
 		return err
+	}
+
+	p.HttpReq.Header.Set(ContentType, ApplicationJson)
+
+	if p.WrapAsMultipart || p.ContentType != "" {
+		p.HttpReq.Header.Set(ContentType, p.ContentType)
 	}
 
 	return nil
@@ -438,6 +452,10 @@ func (p *Plugin) ValidateAuthBasic() error {
 
 func (p *Plugin) ValidateRequestBody() error {
 
+	if p.IsUploadFileRequired() {
+		return p.AddFileUploadData()
+	}
+
 	bodyStr := p.RequestBody
 	method := p.HttpMethod
 
@@ -448,6 +466,90 @@ func (p *Plugin) ValidateRequestBody() error {
 	}
 
 	return nil
+}
+
+func (p *Plugin) AddFileUploadData() error {
+
+	absoluteFilePath, err := GetAbsolutePath(p.UploadFile)
+	if err != nil {
+		return err
+	}
+	p.uploadFileAbsolutePath = absoluteFilePath
+
+	if p.WrapAsMultipart {
+		return p.AddFileUploadDataAsMultiPart()
+	}
+
+	return p.AddFileUploadDataWithoutMultiPart()
+}
+
+func (p *Plugin) AddFileUploadDataAsMultiPart() error {
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	file, err := os.Open(p.uploadFileAbsolutePath)
+	if err != nil {
+		return fmt.Errorf("error opening file: %v", err)
+	}
+	defer func() {
+		if file != nil {
+			err := file.Close()
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	part, err := writer.CreateFormFile(p.MultiPartName, filepath.Base(p.uploadFileAbsolutePath))
+	if err != nil {
+		return fmt.Errorf("error creating form file: %v", err)
+	}
+	defer func() {
+		if writer == nil {
+			return
+		}
+		err := writer.Close()
+		if err != nil {
+			return
+		}
+	}()
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return fmt.Errorf("error copying file content: %v", err)
+	}
+
+	p.BodyIoReader = &body
+	p.ContentType = writer.FormDataContentType()
+
+	return nil
+}
+
+func (p *Plugin) AddFileUploadDataWithoutMultiPart() error {
+
+	file, err := os.Open(p.uploadFileAbsolutePath)
+	if err != nil {
+		return fmt.Errorf("error opening file: %v", err)
+	}
+
+	defer func() {
+		if err == nil {
+			err := file.Close()
+			if err != nil {
+				return
+			}
+		}
+	}()
+
+	p.BodyIoReader = file
+	p.ContentType = ApplicationOctetStream
+
+	return nil
+}
+
+func (p *Plugin) IsUploadFileRequired() bool {
+	return p.UploadFile != ""
 }
 
 func (p *Plugin) ValidateUrl() error {
@@ -508,8 +610,11 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 }
 
 const (
-	Schema = "https://drone.github.io/drone-jira/card.json"
-	StdOut = "/dev/stdout"
+	Schema                 = "https://drone.github.io/drone-jira/card.json"
+	StdOut                 = "/dev/stdout"
+	ApplicationOctetStream = "application/octet-stream"
+	ApplicationJson        = "application/json"
+	ContentType            = "Content-Type"
 )
 
 //
