@@ -87,6 +87,7 @@ func Exec(ctx context.Context, args Args) error {
 }
 
 func GetNewPlugin(args Args) *Plugin {
+
 	return &Plugin{
 		Args: args,
 	}
@@ -106,7 +107,7 @@ func (p *Plugin) DeInit() error {
 		p.HttpRequestCancelContext = nil
 	}
 
-	LogPrintln("DeInit() called")
+	LogPrintln(p, "DeInit() called")
 	return nil
 }
 
@@ -167,7 +168,7 @@ func (p *Plugin) DoRequest() error {
 	p.httpResponse, err = p.httpClient.Do(p.HttpReq)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			LogPrintln("request timed out")
+			LogPrintln(p, "request timed out")
 		}
 		return err
 	}
@@ -221,7 +222,7 @@ func (p *Plugin) StoreHttpResponseResults() error {
 		ResponseFile:    p.OutputFile,
 	}
 
-	writeCard(StdOut, Schema, card)
+	writeCard(p, StdOut, Schema, card)
 	return nil
 }
 
@@ -244,7 +245,7 @@ func (p *Plugin) WriteResponseToFile() error {
 func (p *Plugin) SetResponseBody() error {
 	bodyBytes, err := ioutil.ReadAll(p.httpResponse.Body)
 	if err != nil {
-		LogPrintln("error reading response body ", err.Error())
+		LogPrintln(p, "error reading response body ", err.Error())
 		return err
 	}
 	p.ResponseContent = string(bodyBytes)
@@ -258,9 +259,9 @@ func (p *Plugin) CreateHttpClient() {
 }
 
 func (p *Plugin) SetHttpResponseEnvVars() {
-	LogPrintf("Response status: %s\n", p.httpResponse.Status)
+	LogPrintf(p, "Response status: %s\n", p.httpResponse.Status)
 	for key, values := range p.httpResponse.Header {
-		LogPrintf("%s: %s\n", key, strings.Join(values, ","))
+		LogPrintf(p, "%s: %s\n", key, strings.Join(values, ","))
 	}
 }
 
@@ -305,32 +306,32 @@ func (p *Plugin) SetHeaders() {
 func (p *Plugin) ValidateArgs() error {
 
 	if p.ValidateUrl() != nil {
-		LogPrintln("bad url")
+		LogPrintln(p, "bad url")
 		return errors.New("url is required")
 	}
 
 	if p.ValidateHttpMethod(p.HttpMethod) != nil {
-		LogPrintln("invalid http_method")
+		LogPrintln(p, "invalid http_method")
 		return errors.New("invalid http_method")
 	}
 
 	if p.ValidateHeader(p.Headers) != nil {
-		LogPrintln("malformed headers")
+		LogPrintln(p, "malformed headers")
 		return errors.New("malformed headers")
 	}
 
 	if p.ValidateRequestBody() != nil {
-		LogPrintln("request_body is required")
+		LogPrintln(p, "request_body is required")
 		return errors.New("request_body is required")
 	}
 
 	if p.ValidateAuthBasic() != nil {
-		LogPrintln("auth_basic info not good")
+		LogPrintln(p, "auth_basic info not good")
 		return errors.New("auth_basic info not good")
 	}
 
 	if p.ValidateAuthCert() != nil {
-		LogPrintln("certificate file not found")
+		LogPrintln(p, "certificate file not found")
 		return errors.New("certificate file not found")
 	}
 
@@ -423,25 +424,25 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 
 		headerItem = strings.TrimSpace(headerItem)
 		if i == 0 && headerItem == "" {
-			LogPrintln(`if i == 0 && headerItem == ""`)
+			LogPrintln(p, `if i == 0 && headerItem == ""`)
 			return errors.New("malformed header: empty header")
 		}
 
 		kvPair := strings.SplitN(headerItem, ":", 2)
 		if len(kvPair) != 2 {
-			LogPrintln(`if len(kvPair) != 2`)
+			LogPrintln(p, `if len(kvPair) != 2`)
 			return errors.New("malformed header: " + headerItem + " missing colon")
 		}
 
 		key := strings.TrimSpace(kvPair[0])
 		if key == "" {
-			LogPrintln(`if key == ""`)
+			LogPrintln(p, `if key == ""`)
 			return errors.New("malformed header: " + headerItem + " empty header name")
 		}
 
 		value := strings.TrimSpace(kvPair[1])
 		if value == "" {
-			LogPrintln(`if value == ""`)
+			LogPrintln(p, `if value == ""`)
 			return errors.New("malformed header: " + headerItem + " empty header value")
 		}
 	}

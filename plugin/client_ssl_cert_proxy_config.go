@@ -32,7 +32,7 @@ func (p *Plugin) SetHttpConnectionParameters() error {
 	isClientCert := p.SslCertPath != ""
 	isProxy := p.Proxy != ""
 
-	LogPrintf("Configuration Ignore SSL: %t, Client Cert: %t, Proxy: %t\n", isIgnoreSsl, isClientCert, isProxy)
+	LogPrintf(p, "Configuration Ignore SSL: %t, Client Cert: %t, Proxy: %t\n", isIgnoreSsl, isClientCert, isProxy)
 
 	var err error
 

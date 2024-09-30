@@ -13,25 +13,25 @@ import (
 	"os"
 )
 
-func writeCard(path, schema string, card interface{}) {
+func writeCard(p *Plugin, path, schema string, card interface{}) {
 	data, _ := json.Marshal(map[string]interface{}{
 		"schema": schema,
 		"data":   card,
 	})
 	switch {
 	case path == "/dev/stdout":
-		writeCardTo(os.Stdout, data)
+		writeCardTo(p, os.Stdout, data)
 	case path == "/dev/stderr":
-		writeCardTo(os.Stderr, data)
+		writeCardTo(p, os.Stderr, data)
 	case path != "":
 		ioutil.WriteFile(path, data, 0644)
 	}
 }
 
-func writeCardTo(out io.Writer, data []byte) {
+func writeCardTo(p *Plugin, out io.Writer, data []byte) {
 
 	if os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE" {
-		LogPrintln("writeCardTo TMP_PLUGIN_LOCAL_TESTING is TRUE, skipping writing card")
+		LogPrintln(p, "writeCardTo TMP_PLUGIN_LOCAL_TESTING is TRUE, skipping writing card")
 		return
 	}
 
@@ -42,11 +42,25 @@ func writeCardTo(out io.Writer, data []byte) {
 	io.WriteString(out, "\n")
 }
 
-func LogPrintln(args ...interface{}) {
+func LogPrintln(p *Plugin, args ...interface{}) {
+
+	if p != nil {
+		if p.Quiet {
+			return
+		}
+	}
+
 	log.Println(append([]interface{}{"Plugin Info:"}, args...)...)
 }
 
-func LogPrintf(format string, args ...interface{}) {
+func LogPrintf(p *Plugin, format string, args ...interface{}) {
+
+	if p != nil {
+		if p.Quiet {
+			return
+		}
+	}
+
 	log.Printf("Plugin Info: "+format, args...)
 }
 

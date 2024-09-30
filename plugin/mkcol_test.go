@@ -47,7 +47,7 @@ func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 		t.Skip("Skipping TestMKCOLWithLocalWebDAVServer test")
 	}
 
-	LogPrintln("Starting WEB server test waits for 10 seconds for webdav server to start")
+	LogPrintln(nil, "Starting WEB server test waits for 10 seconds for webdav server to start")
 	cmd := startWebDAVServer(t)
 
 	randomDir := randomString(10)
