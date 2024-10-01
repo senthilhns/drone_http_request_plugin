@@ -4,9 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -21,25 +19,6 @@ func randomString(n int) string {
 	return string(result)
 }
 
-func startWebDAVServer(t *testing.T) *exec.Cmd {
-	workingDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-
-	serverPath := filepath.Join(workingDir, "../test-resources/webdav_server.go")
-	cmd := exec.Command("go", "run", serverPath)
-
-	err = cmd.Start()
-	if err != nil {
-		t.Fatalf("Failed to start WebDAV server: %v", err)
-	}
-
-	time.Sleep(15 * time.Second)
-
-	return cmd
-}
-
 func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 
 	_, found := enableTests["TestMKCOLWithLocalWebDAVServer"]
@@ -47,11 +26,45 @@ func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 		t.Skip("Skipping TestMKCOLWithLocalWebDAVServer test")
 	}
 
-	LogPrintln(nil, "Starting WEB server test waits for 10 seconds for webdav server to start")
-	cmd := startWebDAVServer(t)
+	var ts *httptest.Server
+
+	ts = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "MKCOL" {
+			w.WriteHeader(http.StatusCreated)
+			return
+		}
+
+		if r.URL.Path == "/quit" {
+			w.WriteHeader(http.StatusOK)
+			go ts.Close()
+			return
+		}
+
+		http.Error(w, "Not Found", http.StatusNotFound)
+	}))
+	defer ts.Close()
 
 	randomDir := randomString(10)
-	mkcolURL := fmt.Sprintf("http://localhost:8080/%s", randomDir)
+	mkcolURL := fmt.Sprintf("%s/%s", ts.URL, randomDir)
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        mkcolURL,
+			HttpMethod: "MKCOL",
+			Quiet:      true,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	thisTestName := "TestMKCOLWithLocalWebDAVServer"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest("MKCOL", mkcolURL, nil)
@@ -70,7 +83,7 @@ func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 	}
 	t.Logf("MKCOL request succeeded for directory: %s", randomDir)
 
-	quitURL := "http://localhost:8080/quit"
+	quitURL := fmt.Sprintf("%s/quit", ts.URL)
 	req, err = http.NewRequest("GET", quitURL, nil)
 	if err != nil {
 		t.Fatalf("Error creating shutdown request: %v", err)
@@ -82,11 +95,7 @@ func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 	}
 	defer resp.Body.Close()
 
-	err = cmd.Wait()
-	if err != nil {
-		t.Fatalf("Error waiting for server shutdown: %v", err)
-	}
-	t.Log("Server shutdown successfully")
+	plugin.DeInit()
 }
 
 //
