@@ -458,6 +458,10 @@ func CheckForResponseLogging(t *testing.T, isLogResponse bool) {
 		}
 	}
 
+	if !isLogResponse {
+		plugin.IsSuppressLogs = true
+	}
+
 	thisTestName := "TestGetRequestWithResponseLogging"
 	cli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)

@@ -67,6 +67,7 @@ type PluginProcessingInfo struct {
 	isConnectionOpen         bool
 	proxyUrl                 *url.URL
 	uploadFileAbsolutePath   string
+	IsSuppressLogs           bool
 }
 
 type PluginExecResultsCard struct {
@@ -254,7 +255,7 @@ func (p *Plugin) IsResponseStatusOk() error {
 
 func (p *Plugin) StoreHttpResponseResults() error {
 
-	if p.LogResponse || os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE" {
+	if (p.LogResponse || os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE") && !p.IsSuppressLogs {
 		LogPrintln(p, p.ResponseContent)
 	}
 
