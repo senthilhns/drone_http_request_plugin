@@ -19,6 +19,20 @@ docker run --rm -e PLUGIN_PARAM1=foo -e PLUGIN_PARAM2=bar \
   -v $(pwd):/drone/src \
   senthilhns/drone_http_request_plugin
 
+
+docker run --rm \
+-e PLUGIN_URL='http://127.0.0.1:36991' \
+-e PLUGIN_HTTP_METHOD='POST' \
+-e PLUGIN_QUIET='true' \
+-e PLUGIN_UPLOAD_FILE='/home/hns/multipart-test1.txt' \
+-e TMP_PLUGIN_LOCAL_TESTING='TRUE' \
+-e PLUGIN_IS_TESTING='true' \
+-e TMP_PLUGIN_LOCAL_TESTING='TRUE' \
+-e PLUGIN_IS_TESTING='true' \
+ go run ../main.go
+
+
+
 docker run --rm -e PLUGIN_URL=foo \
   -w /drone/src \
   -v $(pwd):/drone/src \

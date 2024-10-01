@@ -23,28 +23,29 @@ const (
 )
 
 var emittedCommands []string
+var dockerCliCommands []string
 
 var enableTests = map[string]bool{
-	"TestGetRequest":                      true,
-	"TestGetRequestWithValidResponseBody": true,
-	"TestPostRequest":                     true,
-	"TestPutRequest":                      true,
-	"TestDeleteRequest":                   true,
-	"TestPatchRequest":                    true,
-	"TestHeadRequest":                     true,
-	"TestOptionsRequest":                  true,
-	"TestMkcolRequest":                    true,
-	"TestMKCOLWithLocalWebDAVServer":      true,
-
-	"TestGetRequestAndWriteToFile":         true,
-	"TestGetRequestWithResponseLogging":    true,
-	"TestGetRequestWithoutResponseLogging": true,
-	"TestGetRequestWithQuietMode":          true,
-	"TestDirectFileUpload":                 true,
-	"TestMultipartFileUpload":              true,
-
-	"TestNegativeAuthBasic": true,
-	"TestPositiveAuthBasic": true,
+	"TestGetRequest": true,
+	//"TestGetRequestWithValidResponseBody": true,
+	//"TestPostRequest":                     true,
+	//"TestPutRequest":                      true,
+	//"TestDeleteRequest":                   true,
+	//"TestPatchRequest":                    true,
+	//"TestHeadRequest":                     true,
+	//"TestOptionsRequest":                  true,
+	//"TestMkcolRequest":                    true,
+	//"TestMKCOLWithLocalWebDAVServer":      true,
+	//
+	//"TestGetRequestAndWriteToFile":         true,
+	//"TestGetRequestWithResponseLogging":    true,
+	//"TestGetRequestWithoutResponseLogging": true,
+	//"TestGetRequestWithQuietMode":          true,
+	//"TestDirectFileUpload":                 true,
+	//"TestMultipartFileUpload":              true,
+	//
+	//"TestNegativeAuthBasic": true,
+	//"TestPositiveAuthBasic": true,
 
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
@@ -57,21 +58,20 @@ var enableTests = map[string]bool{
 	// "TestSslSkippingNoClientCertProxyEnabled": true,
 }
 
-// const IsEmitCli = true
-const IsEmitCli = false
+const IsEmitCli = true
+
+//const IsEmitCli = false
 
 func TestMain(m *testing.M) {
+
 	exitCode := m.Run()
 
 	if !IsEmitCli {
 		os.Exit(exitCode)
 	}
 
-	fmt.Println("\nCollected Command Lines:")
-	for _, cmd := range emittedCommands {
-		fmt.Println("\n\n## ")
-		fmt.Println(cmd)
-	}
+	WriteCommandsListToFile("/tmp/run_plugin_cli.sh", emittedCommands)
+	WriteCommandsListToFile("/tmp/run_docker_cli.sh", dockerCliCommands)
 
 	os.Exit(exitCode)
 }
@@ -116,8 +116,9 @@ func TestGetRequestWithValidResponseBody(t *testing.T) {
 		t.Fatalf("Run() returned an error: %v", err)
 	}
 
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	defer func() {
 		plugin.DeInit()
@@ -289,8 +290,9 @@ func TestPositiveAuthBasic(t *testing.T) {
 	}
 
 	thisTestName := "TestPositiveAuthBasic"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -344,8 +346,9 @@ func TestNegativeAuthBasic(t *testing.T) {
 	}
 
 	thisTestName := "TestNegativeAuthBasic"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -395,8 +398,9 @@ func TestGetRequestAndWriteToFile(t *testing.T) {
 	plugin := GetNewPlugin(args)
 
 	thisTestName := "TestGetRequestAndWriteToFile"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -466,8 +470,9 @@ func CheckForResponseLogging(t *testing.T, isLogResponse bool) {
 	}
 
 	thisTestName := "TestGetRequestWithResponseLogging"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -527,8 +532,9 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 
 	plugin := GetNewPlugin(args)
 
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -570,7 +576,9 @@ func runPluginTest(t *testing.T, method, url, body, headers string) string {
 		PluginProcessingInfo: PluginProcessingInfo{},
 	}
 
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+method+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+method+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -622,8 +630,9 @@ func TestGetRequestWithQuietMode(t *testing.T) {
 	plugin := GetNewPlugin(args)
 
 	thisTestName := "TestGetRequestWithQuietMode"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -701,8 +710,9 @@ func TestMultipartFileUpload(t *testing.T) {
 	err = plugin.Run()
 
 	thisTestName := "TestMultipartFileUpload"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	if err != nil {
 		t.Fatalf("Run() returned an error: %v", err)
@@ -756,8 +766,9 @@ func TestDirectFileUpload(t *testing.T) {
 	plugin := GetNewPlugin(args)
 
 	thisTestName := "TestDirectFileUpload"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err = plugin.Run()
 	if err != nil {

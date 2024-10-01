@@ -611,7 +611,7 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 	return nil
 }
 
-func (p *PluginInputParams) EmitCommandLine() string {
+func (p *PluginInputParams) EmitCommandLine() (string, string) {
 	return EmitCommandLineForPluginStruct(*p)
 }
 

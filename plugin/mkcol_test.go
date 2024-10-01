@@ -58,8 +58,9 @@ func TestMKCOLWithLocalWebDAVServer(t *testing.T) {
 	plugin := GetNewPlugin(args)
 
 	thisTestName := "TestMKCOLWithLocalWebDAVServer"
-	cli := plugin.EmitCommandLine()
+	cli, dockerCli := plugin.EmitCommandLine()
 	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
 
 	err := plugin.Run()
 	if err != nil {
