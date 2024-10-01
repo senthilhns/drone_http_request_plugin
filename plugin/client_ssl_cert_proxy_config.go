@@ -14,16 +14,16 @@ import (
 
 	All these are independent of each other and 8 combinations are possible
 
-	| isIgnoreSsl | isClientCert | isProxy | Combination Description                              |
-	|-------------|--------------|---------|------------------------------------------------------|
-	| false       | false        | false   | SSL required, no client cert, no proxy               |
-	| false       | false        | true    | SSL required, no client cert, proxy enabled          |
-	| false       | true         | false   | SSL required, client cert provided, no proxy  	      |
-	| false       | true         | true    | SSL required, client cert provided, proxy enabled    |
-	| true        | false        | false   | No SSL, no client cert, no proxy                     |
-	| true        | false        | true    | No SSL skipping, no client cert, proxy enabled       |
-	| true        | true         | false   | No SSL skipping, client cert provided, no proxy      |
-	| true        | true         | true    | No SSL skipping, client cert provided, proxy enabled |
+	isIgnoreSsl,isClientCert,isProxy,Combination Description
+	false,false,false,SSL required, no client cert, no proxy
+	false,false,true,SSL required, no client cert, proxy enabled
+	false,true,false,SSL required, client cert provided, no proxy
+	false,true,true,SSL required, client cert provided, proxy enabled
+	true,false,false,No SSL, no client cert, no proxy
+	true,false,true,No SSL skipping, no client cert, proxy enabled
+	true,true,false,No SSL skipping, client cert provided, no proxy
+	true,true,true,No SSL skipping, client cert provided, proxy enabled
+
 */
 
 func (p *Plugin) SetHttpConnectionParameters() error {
