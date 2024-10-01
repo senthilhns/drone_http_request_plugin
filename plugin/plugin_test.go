@@ -43,6 +43,9 @@ var enableTests = map[string]bool{
 	"TestDirectFileUpload":                 true,
 	"TestMultipartFileUpload":              true,
 
+	"TestNegativeAuthBasic": true,
+	"TestPositiveAuthBasic": true,
+
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
 	//"TestSslSkippingNoClientCertNoProxy": true,
@@ -274,9 +277,9 @@ func TestPositiveAuthBasic(t *testing.T) {
 		PluginInputParams: PluginInputParams{
 			Url:        "https://httpbin.org/basic-auth/user/pass",
 			HttpMethod: "GET",
-			//AuthBasic:  username + ":" + password,
-			Timeout: 30,
-			Headers: ContentTypeApplicationJson,
+			AuthBasic:  username + ":" + password,
+			Timeout:    30,
+			Headers:    ContentTypeApplicationJson,
 		},
 	}
 
