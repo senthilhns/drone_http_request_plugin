@@ -22,6 +22,8 @@ const (
 	ContentTypeApplicationJson = "Content-Type:application/json"
 )
 
+var emittedCommands []string
+
 var enableTests = map[string]bool{
 	"TestGetRequest":                      true,
 	"TestGetRequestWithValidResponseBody": true,
@@ -52,20 +54,44 @@ var enableTests = map[string]bool{
 	// "TestSslSkippingNoClientCertProxyEnabled": true,
 }
 
-func TestGetRequest(t *testing.T) {
-	_, found := enableTests["TestGetRequest"]
-	if !found {
-		t.Skip("Skipping TestGetRequest test")
+// const IsEmitCli = true
+const IsEmitCli = false
+
+func TestMain(m *testing.M) {
+	exitCode := m.Run()
+
+	if !IsEmitCli {
+		os.Exit(exitCode)
 	}
 
-	runPluginTest(t, "GET", TestUrl+"/get", "", ContentTypeApplicationJson)
+	fmt.Println("\nCollected Command Lines:")
+	for _, cmd := range emittedCommands {
+		fmt.Println("\n\n## ")
+		fmt.Println(cmd)
+	}
+
+	os.Exit(exitCode)
+}
+
+func TestGetRequest(t *testing.T) {
+	thisTestName := "TestGetRequest"
+	_, found := enableTests[thisTestName]
+	if !found {
+		t.Skip("Skipping " + thisTestName + " test")
+	}
+
+	cli := runPluginTest(t, "GET", TestUrl+"/get", "", ContentTypeApplicationJson)
+
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestGetRequestWithValidResponseBody(t *testing.T) {
 
-	_, found := enableTests["TestGetRequestWithValidResponseBody"]
+	thisTestName := "TestGetRequestWithValidResponseBody"
+
+	_, found := enableTests[thisTestName]
 	if !found {
-		t.Skip("Skipping TestGetRequestWithValidResponseBody test")
+		t.Skip("Skipping " + thisTestName + " test")
 	}
 
 	expectedResponseBody := `"Content-Type": "application/json",`
@@ -87,6 +113,9 @@ func TestGetRequestWithValidResponseBody(t *testing.T) {
 		t.Fatalf("Run() returned an error: %v", err)
 	}
 
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 	defer func() {
 		plugin.DeInit()
 	}()
@@ -103,57 +132,79 @@ func TestGetRequestWithValidResponseBody(t *testing.T) {
 }
 
 func TestPostRequest(t *testing.T) {
-	_, found := enableTests["TestPostRequest"]
+
+	thisTestName := "TestPostRequest"
+
+	_, found := enableTests[thisTestName]
 	if !found {
 		t.Skip("Skipping TestPostRequest test")
 	}
 
-	runPluginTest(t, "POST", TestUrl+"/post", `{"name":"drone"}`, ContentTypeApplicationJson)
+	cli := runPluginTest(t, "POST", TestUrl+"/post", `{"name":"drone"}`, ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 }
 
 func TestPutRequest(t *testing.T) {
+
+	thisTestName := "TestPutRequest"
+
 	_, found := enableTests["TestPutRequest"]
 	if !found {
 		t.Skip("Skipping TestPutRequest test")
 	}
 
-	runPluginTest(t, "PUT", TestUrl+"/put", `{"name":"drone"}`, ContentTypeApplicationJson)
+	cli := runPluginTest(t, "PUT", TestUrl+"/put", `{"name":"drone"}`, ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestDeleteRequest(t *testing.T) {
+
+	thisTestName := "TestDeleteRequest"
+
 	_, found := enableTests["TestDeleteRequest"]
 	if !found {
 		t.Skip("Skipping TestDeleteRequest test")
 	}
 
-	runPluginTest(t, "DELETE", TestUrl+"/delete", "", ContentTypeApplicationJson)
+	cli := runPluginTest(t, "DELETE", TestUrl+"/delete", "", ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestPatchRequest(t *testing.T) {
+
+	thisTestName := "TestPatchRequest"
 	_, found := enableTests["TestPatchRequest"]
 	if !found {
 		t.Skip("Skipping TestPatchRequest test")
 	}
 
-	runPluginTest(t, "PATCH", TestUrl+"/patch", `{"name":"drone"}`, ContentTypeApplicationJson)
+	cli := runPluginTest(t, "PATCH", TestUrl+"/patch", `{"name":"drone"}`, ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestHeadRequest(t *testing.T) {
+
+	thisTestName := "TestHeadRequest"
 	_, found := enableTests["TestHeadRequest"]
 	if !found {
 		t.Skip("Skipping TestHeadRequest test")
 	}
 
-	runPluginTest(t, "HEAD", TestUrl+"/get", "", ContentTypeApplicationJson)
+	cli := runPluginTest(t, "HEAD", TestUrl+"/get", "", ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestOptionsRequest(t *testing.T) {
+
+	thisTestName := "TestOptionsRequest"
 	_, found := enableTests["TestOptionsRequest"]
 	if !found {
 		t.Skip("Skipping TestOptionsRequest test")
 	}
 
-	runPluginTest(t, "OPTIONS", TestUrl+"/get", "", ContentTypeApplicationJson)
+	cli := runPluginTest(t, "OPTIONS", TestUrl+"/get", "", ContentTypeApplicationJson)
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 }
 
 func TestBadHeaders(t *testing.T) {
@@ -234,6 +285,10 @@ func TestPositiveAuthBasic(t *testing.T) {
 		PluginProcessingInfo: PluginProcessingInfo{},
 	}
 
+	thisTestName := "TestPositiveAuthBasic"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 	err := plugin.Run()
 	if err != nil {
 		t.Fatalf("Run() returned an error: %v", err)
@@ -285,6 +340,10 @@ func TestNegativeAuthBasic(t *testing.T) {
 		PluginProcessingInfo: PluginProcessingInfo{},
 	}
 
+	thisTestName := "TestNegativeAuthBasic"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 	err := plugin.Run()
 	if err != nil {
 		t.Fatalf("Run() returned an error: %v", err)
@@ -331,6 +390,10 @@ func TestGetRequestAndWriteToFile(t *testing.T) {
 	}
 
 	plugin := GetNewPlugin(args)
+
+	thisTestName := "TestGetRequestAndWriteToFile"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -394,6 +457,11 @@ func CheckForResponseLogging(t *testing.T, isLogResponse bool) {
 			plugin.LogResponse = false
 		}
 	}
+
+	thisTestName := "TestGetRequestWithResponseLogging"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 	err := plugin.Run()
 	if err != nil {
 		t.Fatalf("Run() returned an error: %v", err)
@@ -426,6 +494,8 @@ func CheckForResponseLogging(t *testing.T, isLogResponse bool) {
 
 func TestPluginWithCustomSslCert(t *testing.T) {
 
+	thisTestName := "TestPluginWithCustomSslCert"
+
 	_, found := enableTests["TestPluginWithCustomSslCert"]
 	if !found {
 		t.Skip("Skipping TestPluginWithCustomSslCert test")
@@ -449,6 +519,9 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 	}
 
 	plugin := GetNewPlugin(args)
+
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -474,7 +547,7 @@ func TestPluginWithCustomSslCert(t *testing.T) {
 	}
 }
 
-func runPluginTest(t *testing.T, method, url, body, headers string) {
+func runPluginTest(t *testing.T, method, url, body, headers string) string {
 	args := Args{
 		PluginInputParams: PluginInputParams{
 			Url:         url,
@@ -489,6 +562,8 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 		Args:                 args,
 		PluginProcessingInfo: PluginProcessingInfo{},
 	}
+
+	cli := plugin.EmitCommandLine()
 
 	err := plugin.Run()
 	if err != nil {
@@ -513,6 +588,7 @@ func runPluginTest(t *testing.T, method, url, body, headers string) {
 	}
 
 	plugin.httpResponse.Body.Close()
+	return cli
 }
 
 func TestGetRequestWithQuietMode(t *testing.T) {
@@ -537,6 +613,10 @@ func TestGetRequestWithQuietMode(t *testing.T) {
 	}
 
 	plugin := GetNewPlugin(args)
+
+	thisTestName := "TestGetRequestWithQuietMode"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 
 	err := plugin.Run()
 	if err != nil {
@@ -612,6 +692,11 @@ func TestMultipartFileUpload(t *testing.T) {
 	plugin := GetNewPlugin(args)
 
 	err = plugin.Run()
+
+	thisTestName := "TestMultipartFileUpload"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+
 	if err != nil {
 		t.Fatalf("Run() returned an error: %v", err)
 	}
@@ -662,6 +747,10 @@ func TestDirectFileUpload(t *testing.T) {
 	}
 
 	plugin := GetNewPlugin(args)
+
+	thisTestName := "TestDirectFileUpload"
+	cli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
 
 	err = plugin.Run()
 	if err != nil {

@@ -254,7 +254,7 @@ func (p *Plugin) IsResponseStatusOk() error {
 
 func (p *Plugin) StoreHttpResponseResults() error {
 
-	if p.LogResponse {
+	if p.LogResponse || os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE" {
 		LogPrintln(p, p.ResponseContent)
 	}
 
@@ -608,6 +608,10 @@ func (p *Plugin) ValidateHeader(headerStr string) error {
 	}
 
 	return nil
+}
+
+func (p *PluginInputParams) EmitCommandLine() string {
+	return EmitCommandLineForPluginStruct(*p)
 }
 
 //

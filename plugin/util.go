@@ -13,6 +13,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strings"
 )
 
 func writeCard(p *Plugin, path, schema string, card interface{}) {
@@ -75,6 +77,49 @@ func GetAbsolutePath(path string) (string, error) {
 	}
 
 	return absPath, nil
+}
+
+func EmitCommandLineForPluginStruct(s interface{}) string {
+
+	v := reflect.ValueOf(s)
+	t := reflect.TypeOf(s)
+
+	if v.Kind() != reflect.Struct {
+		return ""
+	}
+
+	var envVars []string
+
+	for i := 0; i < v.NumField(); i++ {
+		field := t.Field(i)
+		value := v.Field(i)
+
+		envTag := field.Tag.Get("envconfig")
+		if envTag == "" {
+			continue
+		}
+
+		if value.IsZero() {
+			continue
+		}
+
+		switch value.Kind() {
+		case reflect.String:
+			envVars = append(envVars, fmt.Sprintf("%s='%s'", envTag, value.String()))
+		case reflect.Int:
+			envVars = append(envVars, fmt.Sprintf("%s='%d'", envTag, value.Int()))
+		case reflect.Bool:
+			envVars = append(envVars, fmt.Sprintf("%s='%t'", envTag, value.Bool()))
+		}
+	}
+
+	envVars = append(envVars, `TMP_PLUGIN_LOCAL_TESTING=TRUE `)
+	envVars = append(envVars, `PLUGIN_IS_TESTING=true`)
+
+	envString := strings.Join(envVars, " \\\n")
+
+	return fmt.Sprintf("%s \\\n go run ../main.go", envString)
+
 }
 
 const (
