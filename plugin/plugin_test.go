@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,26 +28,28 @@ var emittedCommands []string
 var dockerCliCommands []string
 
 var enableTests = map[string]bool{
-	"TestGetRequest": true,
-	//"TestGetRequestWithValidResponseBody": true,
-	//"TestPostRequest":                     true,
-	//"TestPutRequest":                      true,
-	//"TestDeleteRequest":                   true,
-	//"TestPatchRequest":                    true,
-	//"TestHeadRequest":                     true,
-	//"TestOptionsRequest":                  true,
-	//"TestMkcolRequest":                    true,
-	//"TestMKCOLWithLocalWebDAVServer":      true,
-	//
-	//"TestGetRequestAndWriteToFile":         true,
-	//"TestGetRequestWithResponseLogging":    true,
-	//"TestGetRequestWithoutResponseLogging": true,
-	//"TestGetRequestWithQuietMode":          true,
-	//"TestDirectFileUpload":                 true,
-	//"TestMultipartFileUpload":              true,
-	//
-	//"TestNegativeAuthBasic": true,
-	//"TestPositiveAuthBasic": true,
+	"TestGetRequest":                      true,
+	"TestGetRequestWithValidResponseBody": true,
+	"TestPostRequest":                     true,
+	"TestPutRequest":                      true,
+	"TestDeleteRequest":                   true,
+	"TestPatchRequest":                    true,
+	"TestHeadRequest":                     true,
+	"TestOptionsRequest":                  true,
+	"TestMkcolRequest":                    true,
+	"TestMKCOLWithLocalWebDAVServer":      true,
+
+	"TestGetRequestAndWriteToFile":         true,
+	"TestGetRequestWithResponseLogging":    true,
+	"TestGetRequestWithoutResponseLogging": true,
+	"TestGetRequestWithQuietMode":          true,
+	"TestDirectFileUpload":                 true,
+	"TestMultipartFileUpload":              true,
+
+	"TestGetRequestUsingProxyWithPlugin": true,
+
+	"TestNegativeAuthBasic": true,
+	"TestPositiveAuthBasic": true,
 
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
@@ -779,4 +783,87 @@ func TestDirectFileUpload(t *testing.T) {
 		plugin.DeInit()
 	}()
 
+}
+
+// this should pass to check whether proxy is fine
+func TestGetRequestUsingProxyWithoutPlugin(t *testing.T) {
+	proxyURL, _ := url.Parse("http://localhost:8888")
+
+	transport := &http.Transport{
+		Proxy:           http.ProxyURL(proxyURL),
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{
+		Transport: transport,
+	}
+
+	resp, err := client.Get("https://httpbin.org/get")
+	if err != nil {
+		t.Fatalf("Failed to send GET request through proxy: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	fmt.Printf("Response from httpbin: %s\n", body)
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, but got %d", resp.StatusCode)
+	}
+}
+
+/*
+check these first
+docker run -d --name='tinyproxy' -p 8888:8888 dannydirect/tinyproxy:latest ANY
+curl -x http://localhost:8888 https://httpbin.org/ip -vv
+*/
+
+var ProxyURL = "http://localhost:8888"
+
+func TestGetRequestUsingProxyWithPlugin(t *testing.T) {
+	thisTestName := "TestGetRequestUsingProxyWithPlugin"
+	_, found := enableTests[thisTestName]
+	if !found {
+		t.Skip("Skipping " + thisTestName + " test")
+	}
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        TestUrl + "/get",
+			HttpMethod: "GET",
+			Headers:    ContentTypeApplicationJson,
+			Proxy:      ProxyURL,
+			Timeout:    30,
+			IgnoreSsl:  true,
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+	cli, dockerCli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	defer func() {
+		plugin.DeInit()
+	}()
+
+	if plugin.httpResponse.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	body, err := io.ReadAll(plugin.httpResponse.Body)
+	if err != nil {
+		t.Fatalf("Failed to read response body: %v", err)
+	}
+
+	t.Logf("Response from httpbin: %s", body)
 }
