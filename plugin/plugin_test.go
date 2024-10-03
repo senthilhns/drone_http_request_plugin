@@ -59,7 +59,7 @@ var enableTests = map[string]bool{
 	//"TestSSlRequiredClientCertProxyEnabled":   true,
 	//"TestSslSkippingClientCertProxyEnabled":   true,
 
-	// "TestSslSkippingNoClientCertProxyEnabled": true,
+	//"TestSslSkippingNoClientCertProxyEnabled": true,
 }
 
 const IsEmitCli = true

@@ -255,7 +255,7 @@ func (p *Plugin) IsResponseStatusOk() error {
 
 func (p *Plugin) StoreHttpResponseResults() error {
 
-	if (p.LogResponse || os.Getenv("TMP_PLUGIN_LOCAL_TESTING") == "TRUE") && !p.IsSuppressLogs {
+	if p.LogResponse {
 		LogPrintln(p, p.ResponseContent)
 	}
 
@@ -274,14 +274,25 @@ func (p *Plugin) StoreHttpResponseResults() error {
 		}
 	}
 
-	card := PluginExecResultsCard{
-		ResponseStatus:  p.ResponseStatus,
-		ResponseContent: p.ResponseContent,
-		ResponseHeaders: p.ResponseHeaders,
-		ResponseFile:    p.OutputFile,
+	type EnvKvPair struct {
+		Key   string
+		Value interface{}
 	}
 
-	writeCard(p, StdOut, Schema, card)
+	var kvPairs = []EnvKvPair{
+		{"RESPONSE_STATUS", p.ResponseStatus},
+		{"RESPONSE_CONTENT", p.ResponseContent},
+		{"RESPONSE_HEADERS", p.ResponseHeaders},
+		{"RESPONSE_FILE", p.OutputFile},
+	}
+
+	for _, kvPair := range kvPairs {
+		err := WriteEnvToFile(kvPair.Key, kvPair.Value)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

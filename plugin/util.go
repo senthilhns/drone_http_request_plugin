@@ -222,6 +222,24 @@ func WriteCommandsListToFile(fileName string, commandsList []string) {
 	}
 }
 
+func WriteEnvToFile(key string, value interface{}) error {
+
+	outputFile, err := os.OpenFile(os.Getenv("DRONE_OUTPUT"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open output file: %w", err)
+	}
+	defer outputFile.Close()
+
+	valueStr := fmt.Sprintf("%v", value)
+
+	_, err = fmt.Fprintf(outputFile, "%s=%s\n", key, valueStr)
+	if err != nil {
+		return fmt.Errorf("failed to write to env: %w", err)
+	}
+
+	return nil
+}
+
 const (
 	Schema                 = "https://drone.github.io/drone-jira/card.json"
 	StdOut                 = "/dev/stdout"
