@@ -51,6 +51,9 @@ var enableTests = map[string]bool{
 	"TestNegativeAuthBasic": true,
 	"TestPositiveAuthBasic": true,
 
+	"TestGetRequestWithAcceptType":          true,
+	"TestGetRequestWithIncorrectAcceptType": true,
+
 	//"TestSSlRequiredNoClientCertNoProxy": true,
 	//"TestSSlRequiredClientCertNoProxy":   true,
 	//"TestSslSkippingNoClientCertNoProxy": true,
@@ -866,4 +869,99 @@ func TestGetRequestUsingProxyWithPlugin(t *testing.T) {
 	}
 
 	t.Logf("Response from httpbin: %s", body)
+}
+
+func TestGetRequestWithAcceptType(t *testing.T) {
+	thisTestName := "TestGetRequestWithAcceptType"
+	expectedAcceptType := "application/json"
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        "https://httpbin.org/get",
+			HttpMethod: "GET",
+			Timeout:    30,
+			AcceptType: expectedAcceptType,
+			Headers:    "Content-Type:application/json",
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptHeader := r.Header.Get("Accept")
+		if acceptHeader != expectedAcceptType {
+			t.Errorf("Expected Accept header to be %s, but got %s", expectedAcceptType, acceptHeader)
+		}
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer ts.Close()
+
+	plugin.Args.PluginInputParams.Url = ts.URL
+
+	err := plugin.Run()
+	if err != nil {
+		t.Fatalf("Run() returned an error: %v", err)
+	}
+
+	cli, dockerCli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
+
+	defer plugin.DeInit()
+
+	if plugin.httpResponse.StatusCode != http.StatusOK {
+		t.Fatalf("Expected status 200, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	t.Logf("Test passed. Accept header correctly set to %s.", expectedAcceptType)
+}
+
+func TestGetRequestWithIncorrectAcceptType(t *testing.T) {
+	thisTestName := "TestGetRequestWithIncorrectAcceptType"
+	expectedAcceptType := "application/xml"
+
+	args := Args{
+		PluginInputParams: PluginInputParams{
+			Url:        "https://httpbin.org/get",
+			HttpMethod: "GET",
+			Timeout:    30,
+			AcceptType: expectedAcceptType,
+			Headers:    "Content-Type:application/json",
+		},
+	}
+
+	plugin := GetNewPlugin(args)
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acceptHeader := r.Header.Get("Accept")
+		if acceptHeader != "application/json" {
+			http.Error(w, "Unsupported media type", http.StatusUnsupportedMediaType)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	}))
+	defer ts.Close()
+
+	plugin.Args.PluginInputParams.Url = ts.URL
+
+	err := plugin.Run()
+
+	cli, dockerCli := plugin.EmitCommandLine()
+	emittedCommands = append(emittedCommands, "# "+thisTestName+"\n"+cli)
+	dockerCliCommands = append(dockerCliCommands, "# "+thisTestName+"\n"+dockerCli)
+
+	defer plugin.DeInit()
+
+	if err == nil {
+		t.Fatalf("Expected an error due to incorrect AcceptType, but Run() did not return an error")
+	}
+
+	if plugin.httpResponse.StatusCode != http.StatusUnsupportedMediaType {
+		t.Fatalf("Expected status 415 Unsupported Media Type, but got %d", plugin.httpResponse.StatusCode)
+	}
+
+	t.Logf("Test passed. Incorrect Accept header was correctly rejected by the server.")
 }

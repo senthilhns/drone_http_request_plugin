@@ -152,6 +152,10 @@ func (p *Plugin) Run() error {
 		return err
 	}
 
+	if p.httpResponse.StatusCode == http.StatusUnsupportedMediaType {
+		return errors.New(fmt.Sprintf("http.StatusUnsupportedMediaType == %d", http.StatusUnsupportedMediaType))
+	}
+
 	err = p.StoreHttpResponseResults()
 	if err != nil {
 		return err
@@ -179,6 +183,9 @@ func (p *Plugin) CreateNewHttpRequest() error {
 		p.HttpReq.Header.Set(ContentType, p.ContentType)
 	}
 
+	if p.AcceptType != "" {
+		p.HttpReq.Header.Set("Accept", p.AcceptType)
+	}
 	return nil
 }
 
