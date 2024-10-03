@@ -83,13 +83,11 @@ type Plugin struct {
 	PluginExecResultsCard
 }
 
-//type Plugin = Plugin
-
 func Exec(ctx context.Context, args Args) error {
 
 	plugin := GetNewPlugin(args)
 
-	plugin.Init()
+	_ = plugin.Init()
 
 	err := plugin.Run()
 	if err != nil {
@@ -336,13 +334,6 @@ func (p *Plugin) WriteResponseToFile() error {
 func (p *Plugin) GetNewHttpClient() {
 	p.httpClient = &http.Client{
 		Timeout: p.TimeOutDuration,
-	}
-}
-
-func (p *Plugin) SetHttpResponseEnvVars() {
-	LogPrintf(p, "Response status: %s\n", p.httpResponse.Status)
-	for key, values := range p.httpResponse.Header {
-		LogPrintf(p, "%s: %s\n", key, strings.Join(values, ","))
 	}
 }
 

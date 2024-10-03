@@ -187,14 +187,7 @@ func EmitShCliForPluginStruct(s interface{},
 
 	suffixArgs := processSuffixArgs()
 	envVars = append(envVars, suffixArgs...)
-
-	//envVars = append(envVars, processTag("TMP_PLUGIN_LOCAL_TESTING", "TRUE"))
-	//envVars = append(envVars, processTag("PLUGIN_IS_TESTING", "true"))
-
-	//envVars = append(envVars, "go", "run", "../main.go")
 	envString := strings.Join(envVars, " \\\n")
-
-	// return fmt.Sprintf("%s \\\n go run ../main.go", envString)
 
 	return fmt.Sprintf("%s \\\n ", envString)
 }
